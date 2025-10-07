@@ -29,7 +29,7 @@ def init_db():
         )
         ''')
 
-        # GÜNCELLENDİ: 'games' tablosuna 'launch_script' alanı eklendi
+        # GÜNCELLENDİ: 'games' tablosuna 'yuzde_yuz_save_path' alanı eklendi
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,23 +47,29 @@ def init_db():
             rating_count INTEGER NOT NULL DEFAULT 0,
             click_count INTEGER NOT NULL DEFAULT 0,
             launch_script TEXT,
+            yuzde_yuz_save_path TEXT,
             FOREIGN KEY (category_id) REFERENCES categories (id)
         )
         ''')
         
-        # Mevcut veritabanları için 'launch_script' ve 'click_count' sütunlarını ekleme (eğer yoksa)
+        # Mevcut veritabanları için eksik sütunları ekleme
         try:
             cursor.execute('ALTER TABLE games ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0')
             print("Mevcut 'games' tablosu 'click_count' kolonu eklenerek güncellendi.")
         except:
-            pass # Kolon zaten varsa hata verir, bu normaldir.
+            pass 
         
         try:
             cursor.execute('ALTER TABLE games ADD COLUMN launch_script TEXT')
             print("Mevcut 'games' tablosu 'launch_script' kolonu eklenerek güncellendi.")
         except:
-            pass # Kolon zaten varsa hata verir, bu normaldir.
-
+            pass
+            
+        try:
+            cursor.execute('ALTER TABLE games ADD COLUMN yuzde_yuz_save_path TEXT')
+            print("Mevcut 'games' tablosu 'yuzde_yuz_save_path' kolonu eklenerek güncellendi.")
+        except:
+            pass
 
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_ratings (
@@ -105,7 +111,7 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM categories")
         if cursor.fetchone()[0] == 0:
             print("Tablo boştu, örnek kategoriler ekleniyor...")
-            sample_categories = [('FPS',), ('RPG',), ('MOBA',), ('Strateji',)]
+            sample_categories = [('FPS',), ('RPG',), ('MOBA',), ('Strateji',), ('Online Oyunlar',)]
             cursor.executemany('INSERT INTO categories (name) VALUES (?)', sample_categories)
 
         cursor.execute("SELECT COUNT(*) FROM settings")

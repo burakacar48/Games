@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for
+from flask import Flask, jsonify, render_template, request, redirect, url_for, send_from_directory
 from flask_cors import CORS
 import sqlite3
 import os
@@ -18,6 +18,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER_COVERS'] = os.path.join(BASE_DIR, 'static/images/covers')
 app.config['UPLOAD_FOLDER_GALLERY'] = os.path.join(BASE_DIR, 'static/images/gallery')
 app.config['UPLOAD_FOLDER_BG'] = os.path.join(BASE_DIR, 'static/images/backgrounds') 
+app.config['UPLOAD_FOLDER_100_SAVES'] = os.path.join(BASE_DIR, 'yuzde_yuz_saves')
+
 DATABASE = 'kafe.db'
 
 def get_db_connection():
@@ -41,7 +43,6 @@ def token_required(f):
         return f(current_user_id, *args, **kwargs)
     return decorated
 
-# Ayar (Settings) Yardımcı Fonksiyonları
 def get_all_settings():
     conn = get_db_connection()
     settings_cursor = conn.execute('SELECT key, value FROM settings').fetchall()
@@ -54,7 +55,7 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
-# ... (diğer tüm API endpoint'leri aynı kalacak) ...
+# API Endpoints
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -95,6 +96,14 @@ def get_games():
         games_list.append(game_dict)
     conn.close()
     return jsonify(games_list)
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    conn = get_db_connection()
+    categories_cursor = conn.execute('SELECT name FROM categories ORDER BY name ASC').fetchall()
+    conn.close()
+    categories_list = [row['name'] for row in categories_cursor]
+    return jsonify(categories_list)
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings_for_client():
@@ -152,7 +161,6 @@ def increment_click_count(game_id):
     conn.close()
     return jsonify({'mesaj': 'Tıklama sayısı artırıldı.'}), 200
 
-
 @app.route('/api/games/<int:game_id>/rate', methods=['POST'])
 @token_required
 def rate_game(current_user_id, game_id):
@@ -186,6 +194,26 @@ def toggle_favorite(current_user_id, game_id):
     conn.close()
     return jsonify({'mesaj': message, 'is_favorite': new_status})
 
+@app.route('/api/games/<int:game_id>/100save', methods=['GET'])
+@token_required
+def download_100_save(current_user_id, game_id):
+    conn = get_db_connection()
+    game = conn.execute('SELECT yuzde_yuz_save_path FROM games WHERE id = ?', (game_id,)).fetchone()
+    conn.close()
+
+    if not game or not game['yuzde_yuz_save_path']:
+        return jsonify({'mesaj': 'Bu oyun için %100 save dosyası bulunamadı.'}), 404
+    
+    try:
+        return send_from_directory(
+            app.config['UPLOAD_FOLDER_100_SAVES'],
+            game['yuzde_yuz_save_path'],
+            as_attachment=True
+        )
+    except FileNotFoundError:
+        return jsonify({'mesaj': 'Save dosyası sunucuda bulunamadı.'}), 404
+
+# Admin Panel Routes
 @app.route('/admin')
 def admin_index():
     conn = get_db_connection()
@@ -244,6 +272,13 @@ def add_game():
                 cover_image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
         
+        yuzde_yuz_save_filename = ''
+        if 'yuzde_yuz_save_file' in request.files:
+            file = request.files['yuzde_yuz_save_file']
+            if file and file.filename != '':
+                yuzde_yuz_save_filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+
         calistirma_verisi = {}
         if calistirma_tipi == 'exe':
             calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
@@ -253,9 +288,9 @@ def add_game():
             calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
             launch_script = None 
         
-        sql = ''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id, launch_script) VALUES(?,?,?,?,?,?,?,?,?,?,?) '''
+        sql = ''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) '''
         cursor = conn.cursor()
-        cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script))
+        cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename))
         
         new_game_id = cursor.lastrowid
         if 'gallery_images' in request.files:
@@ -288,6 +323,13 @@ def edit_game(game_id):
                 cover_image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
         
+        yuzde_yuz_save_filename = request.form['current_yuzde_yuz_save_file']
+        if 'yuzde_yuz_save_file' in request.files:
+            file = request.files['yuzde_yuz_save_file']
+            if file and file.filename != '':
+                yuzde_yuz_save_filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+
         images_to_delete = request.form.getlist('delete_gallery')
         if images_to_delete:
             for image_path_to_delete in images_to_delete:
@@ -312,8 +354,8 @@ def edit_game(game_id):
             calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
             launch_script = None 
         
-        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, category_id=?, launch_script=? WHERE id=? '''
-        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, game_id))
+        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, category_id=?, launch_script=?, yuzde_yuz_save_path=? WHERE id=? '''
+        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename, game_id))
         
         conn.commit()
         conn.close()
@@ -370,7 +412,6 @@ def manage_users():
     conn.close()
     return render_template('manage_users.html', users=users)
 
-# GÜNCELLENDİ: Kullanıcı adı ve şifre güncelleme mantığı
 @app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
 def edit_user(user_id):
     conn = get_db_connection()
@@ -378,19 +419,14 @@ def edit_user(user_id):
         new_username = request.form.get('username').strip()
         new_password = request.form.get('new_password')
 
-        # Kullanıcı adını güncelle
         if new_username and len(new_username) >= 3:
-            # Yeni kullanıcı adının başkası tarafından kullanılıp kullanılmadığını kontrol et
             existing_user = conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone()
             if not existing_user:
                 conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, user_id))
                 conn.commit()
             else:
-                # Hata durumunu kullanıcıya bildirmek için flash mesaj kullanmak daha iyi bir yöntemdir.
-                # Şimdilik basitçe aynı sayfaya yönlendiriyoruz.
                 print(f"Hata: '{new_username}' kullanıcı adı zaten alınmış.")
 
-        # Şifreyi güncelle (sadece girilmişse)
         if new_password and len(new_password) >= 5:
             password_hash = generate_password_hash(new_password)
             conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (password_hash, user_id))
@@ -403,7 +439,6 @@ def edit_user(user_id):
     conn.close()
     if user is None: return "Kullanıcı bulunamadı!", 404
     return render_template('edit_user.html', user=user)
-
 
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
@@ -459,7 +494,6 @@ def reset_all_clicks():
     conn.commit()
     conn.close()
     return redirect(url_for('manage_statistics'))
-
 
 @app.route('/admin/ratings/reset_all', methods=['POST'])
 def reset_all_ratings():
@@ -541,7 +575,7 @@ def general_settings():
 if __name__ == '__main__':
     init_db() 
     
-    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG']:
+    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG', 'UPLOAD_FOLDER_100_SAVES']:
         folder_path = app.config.get(folder_key)
         if folder_path and not os.path.exists(folder_path):
             os.makedirs(folder_path)

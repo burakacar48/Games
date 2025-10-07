@@ -3,7 +3,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let authToken = null;
     let currentUser = null;
     let allGames = [];
-    let allCategories = ['Tümü'];
+    let allCategories = [];
     let userRatings = {};
     let userFavorites = new Set();
     let userSaves = new Set(); 
@@ -11,14 +11,12 @@ window.addEventListener('DOMContentLoaded', () => {
     let appSettings = {};
     const body = document.body;
     
-    // --- HTML Elementlerini Seç ---
     const gameListContainer = document.getElementById('game-list');
     const userSessionContainer = document.getElementById('user-session');
     const searchInput = document.getElementById('search-input');
     const statsBar = document.getElementById('stats-bar');
     const categoryListContainer = document.getElementById('category-list');
     
-    // Modal Elementleri
     const loginModal = document.getElementById('login-modal');
     const loginForm = document.getElementById('login-form');
     const loginError = document.getElementById('login-error');
@@ -27,23 +25,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalSwitchToRegister = document.getElementById('to-register');
     const modalSwitchToLogin = document.getElementById('to-login');
     
-    // Game Detail Modal Elementleri
     const gameDetailModal = document.getElementById('game-detail-modal');
     const detailTitle = document.getElementById('detail-title');
     const detailDescription = document.getElementById('detail-description');
     const detailMeta = document.getElementById('detail-meta');
     const mainMedia = document.getElementById('detail-main-media');
     const thumbnailStrip = document.getElementById('detail-thumbnail-strip');
-    const detailPlayButton = document.getElementById('detail-play-button');
+    const playButtonArea = document.getElementById('play-button-area');
     const userRatingStars = document.getElementById('user-rating-stars');
     const userRatingInner = userRatingStars ? userRatingStars.querySelector('.stars-inner') : null; 
     const averageRatingSummary = document.getElementById('average-rating-summary');
     const favoriteButton = document.getElementById('favorite-button');
-    // Benzer Oyunlar Elementleri
     const similarGamesSection = document.querySelector('.similar-games-section');
     const similarGamesGrid = document.getElementById('similar-games-grid');
 
-    // --- Fonksiyonlar ---
     const updateUserUI = () => {
         if (authToken) {
             userSessionContainer.innerHTML = `
@@ -55,7 +50,7 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('saved-games-button').addEventListener('click', () => {
                 document.querySelector('.category-chip.active')?.classList.remove('active');
                 document.getElementById('saved-games-button').classList.add('active');
-                filterGames('Kayıtlarım'); 
+                filterGames('Kayıtlı Oyunlarım'); 
             });
         } else {
             userSessionContainer.innerHTML = `
@@ -145,7 +140,17 @@ window.addEventListener('DOMContentLoaded', () => {
         allChip.dataset.category = 'Tümü';
         allChip.addEventListener('click', () => handleCategoryClick(allChip));
         categoryListContainer.appendChild(allChip);
-        
+
+        const onlineGamesCategory = 'Online Oyunlar';
+        if (allCategories.includes(onlineGamesCategory)) {
+            const onlineChip = document.createElement('div');
+            onlineChip.className = 'category-chip';
+            onlineChip.textContent = onlineGamesCategory;
+            onlineChip.dataset.category = onlineGamesCategory;
+            onlineChip.addEventListener('click', () => handleCategoryClick(onlineChip));
+            categoryListContainer.appendChild(onlineChip);
+        }
+
         if (authToken) {
             const favChip = document.createElement('div');
             favChip.className = 'category-chip favorites';
@@ -155,7 +160,8 @@ window.addEventListener('DOMContentLoaded', () => {
             categoryListContainer.appendChild(favChip);
         }
 
-        allCategories.slice(1).forEach(categoryName => {
+        const remainingCategories = allCategories.filter(c => c !== onlineGamesCategory);
+        remainingCategories.forEach(categoryName => {
             const chip = document.createElement('div');
             chip.className = 'category-chip';
             chip.textContent = categoryName;
@@ -169,9 +175,9 @@ window.addEventListener('DOMContentLoaded', () => {
         const searchTerm = searchInput.value.toLowerCase();
         let activeCategory = overrideCategory;
         if (!activeCategory) {
-            const activeChip = document.querySelector('.category-chip.active');
+            const activeChip = document.querySelector('.category-chip.active, .btn-saved-games.active');
             if (activeChip) {
-                activeCategory = activeChip.dataset.category;
+                activeCategory = activeChip.dataset.category || activeChip.textContent;
             } else {
                 activeCategory = 'Tümü';
             }
@@ -179,7 +185,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         let filtered = allGames;
         
-        if (activeCategory === 'Kayıtlarım') {
+        if (activeCategory === 'Kayıtlı Oyunlarım') {
             filtered = filtered.filter(game => userSaves.has(game.id));
         } else if (activeCategory === 'Favorilerim') {
             if (!authToken) {
@@ -200,19 +206,26 @@ window.addEventListener('DOMContentLoaded', () => {
         renderGames(filtered);
     };
 
-    const fetchGames = () => {
-        fetch(`${SERVER_URL}/api/games`).then(res => res.json()).then(games => {
-            allGames = games;
-            const uniqueCategories = [...new Set(games.map(g => g.kategori).filter(Boolean))];
-            allCategories = ['Tümü', ...uniqueCategories.sort()];
-            renderCategories();
-            filterGames();
-        }).catch(err => {
-            console.error(err);
-            gameListContainer.innerHTML = `<p style="color: red; text-align: center; grid-column: 1 / -1;">Oyun listesi alınamadı.</p>`;
-        });
+    // GÜNCELLENDİ: Hem oyunları hem de kategorileri çeken fonksiyon
+    const fetchData = () => {
+        const gamesPromise = fetch(`${SERVER_URL}/api/games`).then(res => res.json());
+        const categoriesPromise = fetch(`${SERVER_URL}/api/categories`).then(res => res.json());
+
+        Promise.all([gamesPromise, categoriesPromise])
+            .then(([games, categories]) => {
+                allGames = games;
+                allCategories = categories; // Artık tüm kategorileri buradan alıyoruz
+                
+                renderCategories();
+                filterGames();
+            })
+            .catch(err => {
+                console.error(err);
+                gameListContainer.innerHTML = `<p style="color: red; text-align: center; grid-column: 1 / -1;">Oyun listesi veya kategoriler alınamadı.</p>`;
+            });
     };
     
+    // ... (diğer fonksiyonlar aynı kalacak) ...
     const fetchSettings = () => {
         fetch(`${SERVER_URL}/api/settings`).then(res => {
             if (!res.ok) {
@@ -279,6 +292,11 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    const recordGameClick = (gameId) => {
+        fetch(`${SERVER_URL}/api/games/${gameId}/click`, { method: 'POST' })
+            .catch(err => console.error(`Tıklama kaydedilemedi: ${err}`));
+    };
+
     const showGameDetail = (game) => {
         detailTitle.textContent = game.oyun_adi;
         detailDescription.textContent = game.aciklama || "Açıklama yok.";
@@ -327,7 +345,30 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (!game.youtube_id && index === 0) { imgThumb.click(); }
             });
         }
-        if (detailPlayButton) detailPlayButton.dataset.gameId = game.id;
+        
+        playButtonArea.innerHTML = ''; 
+
+        const playButton = document.createElement('button');
+        playButton.className = 'play-button';
+        playButton.textContent = 'OYNA';
+        playButton.dataset.gameId = game.id;
+        playButton.addEventListener('click', () => {
+            closeGameDetail();
+            syncAndLaunch(game);
+        });
+        
+        if (game.kategori !== 'Online Oyunlar' && game.yuzde_yuz_save_path) {
+            const saveButton = document.createElement('button');
+            saveButton.className = 'save-button';
+            saveButton.textContent = '%100 SAVE';
+            saveButton.addEventListener('click', () => {
+                handle100Save(game.id, game.save_yolu);
+            });
+            playButtonArea.appendChild(saveButton);
+        }
+
+        playButtonArea.appendChild(playButton);
+
         if (gameDetailModal) gameDetailModal.style.display = 'block';
         
         const similarGames = allGames.filter(g => 
@@ -342,16 +383,54 @@ window.addEventListener('DOMContentLoaded', () => {
         if (similarGamesSection) similarGamesSection.classList.add('hidden'); 
     };
     
-    // DÜZENLENDİ: syncAndLaunch fonksiyonu async yapıldı
     const syncAndLaunch = async (game) => {
         try {
-            // Tıklamayı kaydet ve sunucunun yanıt vermesini bekle
             await fetch(`${SERVER_URL}/api/games/${game.id}/click`, { method: 'POST' });
         } catch (err) {
             console.error(`Tıklama kaydedilemedi: ${err}`);
         } finally {
-            // Her durumda oyunu başlat
             window.electronAPI.launchGame(game);
+        }
+    };
+
+    const handle100Save = async (gameId, savePath) => {
+        if (!authToken) {
+            alert("Bu özelliği kullanmak için giriş yapmalısınız.");
+            openLoginModal();
+            return;
+        }
+
+        if (!savePath) {
+            alert("Bu oyun için bir save yolu tanımlanmamış.");
+            return;
+        }
+
+        if (!confirm("%100 save dosyasını yüklemek, mevcut kayıtlarınızın üzerine yazacaktır. Devam etmek istiyor musunuz?")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${SERVER_URL}/api/games/${gameId}/100save`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.mesaj || 'Bilinmeyen bir hata oluştu.');
+            }
+
+            const saveDataBlob = await response.blob();
+            const saveDataBuffer = await saveDataBlob.arrayBuffer();
+
+            const result = await window.electronAPI.unzipSave({ saveDataBuffer, savePath });
+
+            if (result.success) {
+                alert("%100 save başarıyla yüklendi!");
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            alert(`Save dosyası yüklenirken bir hata oluştu: ${error.message}`);
         }
     };
 
@@ -419,16 +498,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (detailPlayButton) {
-        detailPlayButton.addEventListener('click', () => {
-            const game = allGames.find(g => g.id == detailPlayButton.dataset.gameId);
-            if(game) {
-                closeGameDetail();
-                syncAndLaunch(game);
-            }
-        });
-    }
-
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
     
     document.querySelectorAll('.close-button').forEach(btn => { 
@@ -450,12 +519,12 @@ window.addEventListener('DOMContentLoaded', () => {
             userRatingInner.style.width = `${(rating / 5) * 100}%`;
         });
         userRatingStars.addEventListener('mouseleave', () => {
-            const gameId = detailPlayButton.dataset.gameId;
+            const gameId = playButtonArea.querySelector('.play-button')?.dataset.gameId;
             if (gameId && allGames.length > 0) { const game = allGames.find(g => g.id == gameId); if (game) updateRatingDisplay(game); }
         });
         userRatingStars.addEventListener('click', async e => {
             if (!authToken) { alert("Puan vermek için giriş yapmalısınız."); openLoginModal(); return; }
-            const gameId = detailPlayButton.dataset.gameId;
+            const gameId = playButtonArea.querySelector('.play-button')?.dataset.gameId;
             const rect = userRatingStars.getBoundingClientRect();
             const clickWidth = e.clientX - rect.left;
             const rating = Math.max(0.5, Math.ceil((clickWidth / rect.width) * 10) / 2);
@@ -479,10 +548,10 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (favoriteButton && detailPlayButton) {
+    if (favoriteButton && playButtonArea) {
         favoriteButton.addEventListener('click', async () => {
             if (!authToken) { alert("Favorilere eklemek için giriş yapmalısınız."); openLoginModal(); return; }
-            const gameId = parseInt(detailPlayButton.dataset.gameId, 10);
+            const gameId = parseInt(playButtonArea.querySelector('.play-button')?.dataset.gameId, 10);
             try {
                 const response = await fetch(`${SERVER_URL}/api/games/${gameId}/favorite`, {
                     method: 'POST',
@@ -505,6 +574,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     fetchSettings();
-    fetchGames();
+    fetchData(); // GÜNCELLENDİ: Artık bu fonksiyon hem oyunları hem kategorileri çekiyor.
     updateUserUI(); 
 });

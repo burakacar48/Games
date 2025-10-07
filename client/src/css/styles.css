@@ -78,7 +78,6 @@ body.custom-background::before {
 .user-info { color: #b8b8d1; font-size: 14px; font-weight: 500; }
 .user-info span { font-weight: bold; color: #fff; }
 
-/* DÜZENLENDİ: Butonlar için ortak stiller */
 .btn-login, .btn-logout, .btn-saved-games {
     background: linear-gradient(135deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%);
     border: none; padding: 8px 20px; border-radius: 25px;
@@ -92,9 +91,8 @@ body.custom-background::before {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
 }
 
-/* YENİ EKLENDİ: Kayıtlı Oyunlarım butonu için özel stiller */
 .btn-saved-games {
-    background: rgba(59, 130, 246, 0.8); /* Mavi arkaplan */
+    background: rgba(59, 130, 246, 0.8);
 }
 .btn-saved-games.active {
     background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
@@ -208,7 +206,7 @@ body.custom-background::before {
     width: 1em;
     height: 1em;
     fill: currentColor;
-    vertical-align: middle; /* İkonu yazıya göre ortalar */
+    vertical-align: middle;
 }
 .category-chip.favorites .favorite-icon {
     fill: #e53e3e;
@@ -313,9 +311,48 @@ body.custom-background::before {
 .favorite-button:hover { background-color: rgba(255, 107, 107, 0.2); }
 .favorite-button.is-favorite { background-color: #e53e3e; }
 .favorite-button.is-favorite svg { fill: #fff; transform: scale(1.2); }
-.play-button-container { text-align: center; margin-top: 30px; }
-.play-button { width: 60%; padding: 15px; font-size: 20px; font-weight: bold; background: linear-gradient(135deg, #48bb78 0%, #28a745 100%); color: white; border: none; border-radius: 50px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4); }
-.play-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(72, 187, 120, 0.6); }
+
+/* GÜNCELLENDİ: Buton konteyneri ve içindeki butonların stilleri */
+.play-button-container {
+    text-align: center;
+    margin-top: 30px;
+    display: flex;
+    gap: 15px; /* Butonlar arasına boşluk koyar */
+    justify-content: center; /* Butonları ortalar */
+}
+
+.play-button, .save-button {
+    flex-grow: 1; /* Butonların boşluğu doldurmasını sağlar */
+    max-width: 45%; /* İki butonun yan yana sığmasını sağlar */
+    padding: 15px;
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.play-button {
+    background: linear-gradient(135deg, #48bb78 0%, #28a745 100%);
+    box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4);
+}
+.play-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72, 187, 120, 0.6);
+}
+
+.save-button {
+    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+.save-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+
 .similar-games-section { margin-top: 40px; padding-top: 30px; border-top: 1px solid #444; }
 .similar-games-section h2 { font-size: 20px; margin-bottom: 20px; color: #a0aec0; border-bottom: none; padding-bottom: 0; }
 .similar-games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(133px, 1fr)); gap: 15px; } 
