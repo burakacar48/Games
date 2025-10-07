@@ -14,6 +14,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const statsBar = document.getElementById('stats-bar');
     const categoryListContainer = document.getElementById('category-list');
     
+    // YENİ: Başlık ve slogan elementleri
+    const appTitle = document.getElementById('app-title');
+    const headerTitle = document.getElementById('header-title');
+    const headerSlogan = document.getElementById('header-slogan');
+    
     // Modal Elementleri
     const loginModal = document.getElementById('login-modal');
     const loginForm = document.getElementById('login-form');
@@ -152,6 +157,16 @@ window.addEventListener('DOMContentLoaded', () => {
             console.error(err);
             gameListContainer.innerHTML = `<p style="color: red; text-align: center; grid-column: 1 / -1;">Oyun listesi alınamadı.</p>`;
         });
+    };
+    
+    // YENİ: Kafe adını ve sloganı çeker ve DOM'u günceller
+    const fetchSettings = () => {
+        fetch(`${SERVER_URL}/api/settings`).then(res => res.json()).then(settings => {
+            // Varsayılan değerler sağlanmazsa, tarayıcı başlığı varsayılan kalır.
+            appTitle.textContent = settings.cafe_name || 'Kafe Gaming Client'; 
+            headerTitle.textContent = settings.cafe_name || 'Zenka Internet Cafe';
+            headerSlogan.textContent = settings.slogan || 'Hazırsan, oyun başlasın.';
+        }).catch(err => console.error("Ayarlar yüklenemedi:", err));
     };
     
     const updateRatingDisplay = (game) => {
@@ -324,5 +339,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     fetchGames();
+    fetchSettings(); // YENİ: Sayfa yüklenirken ayarları çek
     updateUserUI();
 });

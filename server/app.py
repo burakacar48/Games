@@ -23,6 +23,19 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+# YENİ: Ayarları veritabanından çeken yardımcı işlev
+def get_settings():
+    conn = get_db_connection()
+    try:
+        settings_cursor = conn.execute('SELECT key, value FROM settings').fetchall()
+        settings_dict = {row['key']: row['value'] for row in settings_cursor}
+    except sqlite3.OperationalError:
+        # Tablo henüz oluşturulmadıysa varsayılan değerleri döndür
+        settings_dict = {'cafe_name': 'Kafe Gaming Client', 'slogan': 'Hazırsan, oyun başlasın.'}
+    finally:
+        conn.close()
+    return settings_dict
+
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -79,6 +92,12 @@ def get_games():
         games_list.append(game_dict)
     conn.close()
     return jsonify(games_list)
+
+# YENİ: İstemcinin ayarları çekmesi için API rotası
+@app.route('/api/settings', methods=['GET'])
+def api_settings():
+    settings = get_settings()
+    return jsonify(settings)
 
 @app.route('/api/user/ratings', methods=['GET'])
 @token_required
@@ -317,9 +336,23 @@ def reset_all_ratings():
     conn.close()
     return redirect(url_for('manage_ratings'))
 
-@app.route('/admin/settings')
+# GÜNCELLENDİ: Hem GET hem POST isteklerini işler ve 'settings' değişkenini iletir
+@app.route('/admin/settings', methods=['GET', 'POST'])
 def general_settings():
-    return render_template('general_settings.html')
+    if request.method == 'POST':
+        conn = get_db_connection()
+        cafe_name = request.form['cafe_name']
+        slogan = request.form['slogan']
+        
+        # Ayarları veritabanına kaydet
+        conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('cafe_name', cafe_name))
+        conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('slogan', slogan))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('general_settings'))
+    
+    settings = get_settings() # Ayarları çek
+    return render_template('general_settings.html', settings=settings)
 
 if __name__ == '__main__':
     for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER']:

@@ -74,6 +74,14 @@ def init_db():
         )
         ''')
         
+        # YENİ: Ayarları tutmak için settings tablosu eklendi
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+        ''')
+        
         # Örnek veri ekleme blokları, sadece ilgili tablo boşsa çalışır.
         # Bu sayede mevcut kullanıcıların ve oyunların üzerine veri yazılmaz.
         cursor.execute("SELECT COUNT(*) FROM users")
@@ -100,7 +108,17 @@ def init_db():
             print("Örnek galeri görselleri ekleniyor...")
             cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (1, 'valorant_ss1.jpg'))
             cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (2, 'cs2_ss1.jpg'))
-
+        
+        # YENİ: Varsayılan kafe adı ve slogan ayarları eklendi
+        cursor.execute("SELECT COUNT(*) FROM settings")
+        if cursor.fetchone()[0] == 0:
+            print("Tablo boştu, örnek ayarlar ekleniyor...")
+            sample_settings = [
+                ('cafe_name', 'Zenka Internet Cafe'),
+                ('slogan', 'Hazırsan, oyun başlasın.'),
+            ]
+            cursor.executemany('INSERT INTO settings (key, value) VALUES (?, ?)', sample_settings)
+            
         conn.commit()
         conn.close()
         print("Veritabanı kontrolü tamamlandı. Mevcut veriler korundu.")
