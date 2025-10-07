@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Admin Paneli{% endblock %}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/darcula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/shell/shell.min.js"></script>
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_styles.css') }}">
 </head>
 <body>
@@ -33,6 +39,10 @@
                     <i class="fas fa-plus"></i>
                     <span>Oyun Ekle</span>
                 </a>
+                <a href="{{ url_for('download_games') }}" class="menu-item {% if request.endpoint == 'download_games' %}active{% endif %}">
+                    <i class="fas fa-download"></i>
+                    <span>Oyun İndir</span>
+                </a>
                 <a href="{{ url_for('manage_categories') }}" class="menu-item {% if request.endpoint == 'manage_categories' or request.endpoint == 'delete_category' %}active{% endif %}">
                     <i class="fas fa-folder"></i>
                     <span>Kategoriler</span>
@@ -40,6 +50,10 @@
                 <a href="{{ url_for('manage_ratings') }}" class="menu-item {% if request.endpoint == 'manage_ratings' or request.endpoint == 'reset_all_ratings' %}active{% endif %}">
                     <i class="fas fa-trophy"></i>
                     <span>Puan Yönetimi</span>
+                </a>
+                <a href="{{ url_for('manage_statistics') }}" class="menu-item {% if request.endpoint == 'manage_statistics' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>İstatistikler</span>
                 </a>
             </div>
 
@@ -57,6 +71,10 @@
                 <a href="{{ url_for('general_settings') }}" class="menu-item {% if request.endpoint == 'general_settings' %}active{% endif %}">
                     <i class="fas fa-cog"></i>
                     <span>Genel Ayarlar</span>
+                </a>
+                <a href="{{ url_for('license_management') }}" class="menu-item {% if request.endpoint == 'license_management' %}active{% endif %}">
+                    <i class="fas fa-key"></i>
+                    <span>Lisans Yönetimi</span>
                 </a>
             </div>
         </aside>

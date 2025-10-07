@@ -1,0 +1,44 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Oyun İstatistikleri{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Oyun Tıklanma İstatistikleri</h1>
+        <form action="{{ url_for('reset_all_clicks') }}" method="POST" onsubmit="return confirm('TÜM oyunlara ait BÜTÜN tıklama verilerini kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!');">
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);">
+                <i class="fas fa-trash"></i>
+                Tüm İstatistikleri Sıfırla
+            </button>
+        </form>
+    </div>
+    
+    <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">Oyunların istemcide kaç kez başlatıldığını buradan görebilirsiniz. Sıralamak için tablo başlıklarına tıklayın.</p>
+
+    <div class="games-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>
+                        <a href="{{ url_for('manage_statistics', sort_by='oyun_adi', order=next_order if sort_by == 'oyun_adi' else 'asc') }}" style="color: inherit; text-decoration: none;">
+                            Oyun Adı {% if sort_by == 'oyun_adi' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="width: 200px; text-align: center;">
+                        <a href="{{ url_for('manage_statistics', sort_by='click_count', order=next_order if sort_by == 'click_count' else 'desc') }}" style="color: inherit; text-decoration: none;">
+                            Toplam Tıklanma {% if sort_by == 'click_count' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
+                        </a>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for game in games %}
+                <tr>
+                    <td class="game-name">{{ game.oyun_adi }}</td>
+                    <td style="text-align: center;">{{ game.click_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

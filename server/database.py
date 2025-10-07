@@ -7,9 +7,6 @@ def init_db():
         conn = sqlite3.connect('kafe.db')
         cursor = conn.cursor()
 
-        # MEVCUT VERİLERİ SİLEN 'DROP TABLE' KOMUTLARI TAMAMEN KALDIRILDI.
-        # Artık sadece tablo yoksa oluşturulacak.
-
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,14 +15,12 @@ def init_db():
         )
         ''')
 
-        # --- YENİ EKLENDİ: settings tablosu ---
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT
         )
         ''')
-        # -------------------------------------
 
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS categories (
@@ -34,6 +29,7 @@ def init_db():
         )
         ''')
 
+        # GÜNCELLENDİ: 'games' tablosuna 'launch_script' alanı eklendi
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,10 +45,26 @@ def init_db():
             category_id INTEGER,
             average_rating REAL NOT NULL DEFAULT 0,
             rating_count INTEGER NOT NULL DEFAULT 0,
+            click_count INTEGER NOT NULL DEFAULT 0,
+            launch_script TEXT,
             FOREIGN KEY (category_id) REFERENCES categories (id)
         )
         ''')
         
+        # Mevcut veritabanları için 'launch_script' ve 'click_count' sütunlarını ekleme (eğer yoksa)
+        try:
+            cursor.execute('ALTER TABLE games ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0')
+            print("Mevcut 'games' tablosu 'click_count' kolonu eklenerek güncellendi.")
+        except:
+            pass # Kolon zaten varsa hata verir, bu normaldir.
+        
+        try:
+            cursor.execute('ALTER TABLE games ADD COLUMN launch_script TEXT')
+            print("Mevcut 'games' tablosu 'launch_script' kolonu eklenerek güncellendi.")
+        except:
+            pass # Kolon zaten varsa hata verir, bu normaldir.
+
+
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_ratings (
             user_id INTEGER NOT NULL,
@@ -83,8 +95,7 @@ def init_db():
         )
         ''')
         
-        # Örnek veri ekleme blokları, sadece ilgili tablo boşsa çalışır.
-        # Bu sayede mevcut kullanıcıların ve oyunların üzerine veri yazılmaz.
+        # Örnek veri ekleme blokları...
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             password_hash = generate_password_hash('12345')
@@ -97,7 +108,6 @@ def init_db():
             sample_categories = [('FPS',), ('RPG',), ('MOBA',), ('Strateji',)]
             cursor.executemany('INSERT INTO categories (name) VALUES (?)', sample_categories)
 
-        # --- GÜNCELLENDİ: settings varsayılan verileri ---
         cursor.execute("SELECT COUNT(*) FROM settings")
         if cursor.fetchone()[0] == 0:
             print("Tablo boştu, varsayılan ayarlar ekleniyor...")
@@ -111,7 +121,6 @@ def init_db():
                 ('primary_color_end', '#764ba2')
             ]
             cursor.executemany('INSERT INTO settings (key, value) VALUES (?, ?)', sample_settings)
-        # ---------------------------------------------------
             
         cursor.execute("SELECT COUNT(*) FROM games")
         if cursor.fetchone()[0] == 0:

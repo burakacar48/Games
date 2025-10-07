@@ -41,7 +41,7 @@ def token_required(f):
         return f(current_user_id, *args, **kwargs)
     return decorated
 
-# YENİ: Ayar (Settings) Yardımcı Fonksiyonları
+# Ayar (Settings) Yardımcı Fonksiyonları
 def get_all_settings():
     conn = get_db_connection()
     settings_cursor = conn.execute('SELECT key, value FROM settings').fetchall()
@@ -53,8 +53,8 @@ def set_setting(key, value):
     conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
     conn.commit()
     conn.close()
-# ------------------------------------------
 
+# ... (diğer tüm API endpoint'leri aynı kalacak) ...
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -105,8 +105,8 @@ def get_settings_for_client():
         'background_type': settings.get('background_type'),
         'background_file': settings.get('background_file'),
         'background_opacity_factor': settings.get('background_opacity_factor'),
-        'primary_color_start': settings.get('primary_color_start'), # YENİ
-        'primary_color_end': settings.get('primary_color_end')     # YENİ
+        'primary_color_start': settings.get('primary_color_start'),
+        'primary_color_end': settings.get('primary_color_end')
     })
 
 @app.route('/api/user/ratings', methods=['GET'])
@@ -126,6 +126,32 @@ def get_user_favorites(current_user_id):
     conn.close()
     user_favorites = [row['game_id'] for row in favorites_cursor]
     return jsonify(user_favorites)
+
+@app.route('/api/user/saves', methods=['GET'])
+@token_required
+def get_user_saves(current_user_id):
+    user_save_dir = os.path.join(app.config['SAVE_FOLDER'], str(current_user_id))
+    if not os.path.exists(user_save_dir):
+        return jsonify([])
+    try:
+        saved_games = []
+        for filename in os.listdir(user_save_dir):
+            if filename.endswith('.zip'):
+                game_id = os.path.splitext(filename)[0]
+                if game_id.isdigit():
+                    saved_games.append(int(game_id))
+        return jsonify(saved_games)
+    except Exception as e:
+        return jsonify({'mesaj': f'Kayıtlar okunurken bir hata oluştu: {e}'}), 500
+
+@app.route('/api/games/<int:game_id>/click', methods=['POST'])
+def increment_click_count(game_id):
+    conn = get_db_connection()
+    conn.execute('UPDATE games SET click_count = click_count + 1 WHERE id = ?', (game_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'mesaj': 'Tıklama sayısı artırıldı.'}), 200
+
 
 @app.route('/api/games/<int:game_id>/rate', methods=['POST'])
 @token_required
@@ -160,12 +186,10 @@ def toggle_favorite(current_user_id, game_id):
     conn.close()
     return jsonify({'mesaj': message, 'is_favorite': new_status})
 
-# GÜNCELLENDİ: Dashboard verilerini tek bir fonksiyonda çek
 @app.route('/admin')
 def admin_index():
     conn = get_db_connection()
     
-    # 1. İstatistikleri Çek
     game_count = conn.execute('SELECT COUNT(*) FROM games').fetchone()[0]
     category_count = conn.execute('SELECT COUNT(*) FROM categories').fetchone()[0]
     user_count = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
@@ -175,7 +199,6 @@ def admin_index():
         'user_count': user_count
     }
 
-    # 2. Son Eklenen Oyunları Çek
     query = """
     SELECT g.id, g.oyun_adi, c.name as category_name
     FROM games g
@@ -190,7 +213,6 @@ def admin_index():
     
     return render_template('index.html', stats=stats, recent_games=recent_games_list)
 
-# GÜNCELLENDİ: /admin rotası artık Gösterge Paneline yönlendiriyor.
 @app.route('/admin_redirect')
 def admin_redirect():
     return redirect(url_for('admin_index'))
@@ -212,20 +234,29 @@ def list_games():
 def add_game():
     conn = get_db_connection()
     if request.method == 'POST':
-        oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None
+        oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None;
+        launch_script = request.form.get('launch_script')
+        
         cover_image_filename = ''
         if 'cover_image' in request.files:
             file = request.files['cover_image']
             if file and file.filename != '':
                 cover_image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
+        
         calistirma_verisi = {}
-        if calistirma_tipi == 'exe': calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
-        elif calistirma_tipi == 'steam': calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
-        elif calistirma_tipi == 'script': calistirma_verisi = {'komutlar': [komut.strip() for komut in request.form.get('script_komutlar', '').strip().split('\r\n')]}
-        sql = ''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id) VALUES(?,?,?,?,?,?,?,?,?,?) '''
+        if calistirma_tipi == 'exe':
+            calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
+            if not launch_script or launch_script.strip() == '':
+                launch_script = f'start "" "%EXE_YOLU%" %EXE_ARGS%'
+        elif calistirma_tipi == 'steam':
+            calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
+            launch_script = None 
+        
+        sql = ''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id, launch_script) VALUES(?,?,?,?,?,?,?,?,?,?,?) '''
         cursor = conn.cursor()
-        cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id))
+        cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script))
+        
         new_game_id = cursor.lastrowid
         if 'gallery_images' in request.files:
             files = request.files.getlist('gallery_images')
@@ -234,9 +265,11 @@ def add_game():
                     gallery_filename = secure_filename(file.filename)
                     file.save(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], gallery_filename))
                     conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, gallery_filename))
+        
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
+    
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     conn.close()
     return render_template('add_game.html', categories=categories)
@@ -246,18 +279,22 @@ def edit_game(game_id):
     conn = get_db_connection()
     if request.method == 'POST':
         oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None
+        launch_script = request.form.get('launch_script')
+
         cover_image_filename = request.form['current_cover_image']
         if 'cover_image' in request.files:
             file = request.files['cover_image']
             if file and file.filename != '':
                 cover_image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
+        
         images_to_delete = request.form.getlist('delete_gallery')
         if images_to_delete:
             for image_path_to_delete in images_to_delete:
                 conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (image_path_to_delete, game_id))
                 try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], image_path_to_delete))
                 except OSError as e: print(f"Dosya silinirken hata: {e}")
+        
         if 'gallery_images' in request.files:
             files = request.files.getlist('gallery_images')
             for file in files:
@@ -265,20 +302,30 @@ def edit_game(game_id):
                     gallery_filename = secure_filename(file.filename)
                     file.save(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], gallery_filename))
                     conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, gallery_filename))
+        
         calistirma_verisi = {}
-        if calistirma_tipi == 'exe': calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
-        elif calistirma_tipi == 'steam': calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
-        elif calistirma_tipi == 'script': calistirma_verisi = {'komutlar': [komut.strip() for komut in request.form.get('script_komutlar', '').strip().split('\r\n')]}
-        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, category_id=? WHERE id=? '''
-        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, game_id))
+        if calistirma_tipi == 'exe':
+            calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
+            if not launch_script or launch_script.strip() == '':
+                launch_script = f'start "" "%EXE_YOLU%" %EXE_ARGS%'
+        elif calistirma_tipi == 'steam':
+            calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
+            launch_script = None 
+        
+        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, category_id=?, launch_script=? WHERE id=? '''
+        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, game_id))
+        
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
+    
     game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     gallery_images = conn.execute('SELECT * FROM gallery_images WHERE game_id = ?', (game_id,)).fetchall()
     conn.close()
+    
     if game is None: return "Oyun bulunamadı!", 404
+    
     game_data = dict(game)
     game_data['calistirma_verisi_dict'] = json.loads(game['calistirma_verisi']) if game['calistirma_verisi'] else {}
     return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images)
@@ -323,21 +370,40 @@ def manage_users():
     conn.close()
     return render_template('manage_users.html', users=users)
 
+# GÜNCELLENDİ: Kullanıcı adı ve şifre güncelleme mantığı
 @app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
 def edit_user(user_id):
     conn = get_db_connection()
     if request.method == 'POST':
+        new_username = request.form.get('username').strip()
         new_password = request.form.get('new_password')
+
+        # Kullanıcı adını güncelle
+        if new_username and len(new_username) >= 3:
+            # Yeni kullanıcı adının başkası tarafından kullanılıp kullanılmadığını kontrol et
+            existing_user = conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone()
+            if not existing_user:
+                conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, user_id))
+                conn.commit()
+            else:
+                # Hata durumunu kullanıcıya bildirmek için flash mesaj kullanmak daha iyi bir yöntemdir.
+                # Şimdilik basitçe aynı sayfaya yönlendiriyoruz.
+                print(f"Hata: '{new_username}' kullanıcı adı zaten alınmış.")
+
+        # Şifreyi güncelle (sadece girilmişse)
         if new_password and len(new_password) >= 5:
             password_hash = generate_password_hash(new_password)
             conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (password_hash, user_id))
             conn.commit()
+
         conn.close()
         return redirect(url_for('manage_users'))
+
     user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
     conn.close()
     if user is None: return "Kullanıcı bulunamadı!", 404
     return render_template('edit_user.html', user=user)
+
 
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
@@ -368,6 +434,33 @@ def manage_ratings():
     next_order = 'desc' if order == 'asc' else 'asc'
     return render_template('manage_ratings.html', games=games, sort_by=sort_by, next_order=next_order)
 
+@app.route('/admin/statistics')
+def manage_statistics():
+    sort_by = request.args.get('sort_by', 'click_count') 
+    order = request.args.get('order', 'desc')
+    allowed_sorts = ['oyun_adi', 'click_count']
+    if sort_by not in allowed_sorts:
+        sort_by = 'click_count'
+    if order not in ['asc', 'desc']:
+        order = 'desc'
+    
+    conn = get_db_connection()
+    query = f"SELECT id, oyun_adi, click_count FROM games ORDER BY {sort_by} {order}"
+    games = conn.execute(query).fetchall()
+    conn.close()
+    
+    next_order = 'desc' if order == 'asc' else 'asc'
+    return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order=next_order)
+
+@app.route('/admin/statistics/reset_all', methods=['POST'])
+def reset_all_clicks():
+    conn = get_db_connection()
+    conn.execute('UPDATE games SET click_count = 0')
+    conn.commit()
+    conn.close()
+    return redirect(url_for('manage_statistics'))
+
+
 @app.route('/admin/ratings/reset_all', methods=['POST'])
 def reset_all_ratings():
     conn = get_db_connection()
@@ -377,56 +470,53 @@ def reset_all_ratings():
     conn.close()
     return redirect(url_for('manage_ratings'))
 
+@app.route('/admin/download_games')
+def download_games():
+    return render_template('download_games.html')
+
+@app.route('/admin/license_management')
+def license_management():
+    return render_template('license_management.html')
+
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def general_settings():
     if request.method == 'POST':
-        # Marka Bilgileri
         cafe_name = request.form['cafe_name']
         slogan = request.form['slogan']
         set_setting('cafe_name', cafe_name)
         set_setting('slogan', slogan)
 
-        # Arkaplan Tipi Ayarı
         background_type = request.form['background_type']
         set_setting('background_type', background_type)
 
-        # Renk Ayarları
-        set_setting('primary_color_start', request.form['primary_color_start']) # YENİ
-        set_setting('primary_color_end', request.form['primary_color_end'])     # YENİ
+        set_setting('primary_color_start', request.form['primary_color_start'])
+        set_setting('primary_color_end', request.form['primary_color_end'])
 
-        # Arkaplan Parlaklık/Saydımlık Ayarı
         opacity_factor = request.form.get('background_opacity_factor', '1.0')
         try:
             factor = max(0.1, min(1.0, float(opacity_factor)))
             set_setting('background_opacity_factor', f"{factor:.1f}")
         except ValueError:
             set_setting('background_opacity_factor', '1.0')
-        # ------------------------
         
-        # Eğer yeni bir resim yüklendiyse, onu kaydet
         if background_type == 'custom_bg' and 'custom_background_file' in request.files:
             file = request.files['custom_background_file']
             if file and file.filename != '':
-                # Eski dosyayı sil
                 current_settings = get_all_settings()
                 old_file = current_settings.get('background_file')
                 if old_file:
                     try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
                     except OSError: pass
 
-                # Yeni dosyayı kaydet
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_BG'], filename))
                 set_setting('background_file', filename)
             elif 'current_background_file' in request.form:
-                # Yeni dosya yüklenmedi ama var olan dosya korunuyor
                 set_setting('background_file', request.form['current_background_file'])
             else:
-                # Yeni dosya yüklenmedi ve eski dosya yok, varsayılana dön
                 set_setting('background_type', 'default')
                 set_setting('background_file', '')
         
-        # Eğer varsayılana dönüldüyse veya resim kaldırıldıysa
         if background_type == 'default':
             current_settings = get_all_settings()
             old_file = current_settings.get('background_file')
@@ -438,14 +528,13 @@ def general_settings():
         return redirect(url_for('general_settings'))
 
     settings = get_all_settings()
-    # Eğer settings dict'i eksikse, varsayılan değerleri ekle
     settings.setdefault('cafe_name', 'Zenka Internet Cafe')
     settings.setdefault('slogan', 'Hazırsan, oyun başlasın.')
     settings.setdefault('background_type', 'default')
     settings.setdefault('background_file', '')
     settings.setdefault('background_opacity_factor', '1.0')
-    settings.setdefault('primary_color_start', '#667eea') # YENİ
-    settings.setdefault('primary_color_end', '#764ba2')     # YENİ
+    settings.setdefault('primary_color_start', '#667eea')
+    settings.setdefault('primary_color_end', '#764ba2')
     
     return render_template('general_settings.html', settings=settings)
 

@@ -24,14 +24,10 @@ function createWindow() {
     height: 720,
     webPreferences: {
       preload: path.join(__dirname, 'src/preload.js'),
-
-      // ! --- GEÇİCİ TEST KODU --- !
-      // Bu satır, istemcinin sunucuyla konuşmasını engelleyen
-      // CORS güvenlik duvarını devre dışı bırakır. 
-      // ! --- TEST KODU BİTİŞİ --- !
     }
   });
   win.loadFile('src/index.html');
+  win.maximize();
 }
 
 app.whenReady().then(() => {
@@ -45,7 +41,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Geri kalan tüm ipcMain fonksiyonları aynı...
+// ... (unzip-save ve zip-save fonksiyonları aynı kalacak)
 ipcMain.handle('unzip-save', async (event, { saveDataBuffer, savePath }) => {
     const resolvedPath = resolvePath(savePath);
     if (!resolvedPath) return { success: false, error: 'Geçersiz save yolu.' };
@@ -89,17 +85,39 @@ ipcMain.handle('zip-save', async (event, { savePath }) => {
     }
 });
 
-ipcMain.on('launch-game', (event, game) => {
+
+// GÜNCELLENDİ: Oyun başlatma mantığı
+ipcMain.on('launch-game', async (event, game) => {
     const data = JSON.parse(game.calistirma_verisi);
-    switch (game.calistirma_tipi) {
-        case 'exe':
-            exec(`"${data.yol}" ${data.argumanlar || ''}`, (err) => { if(err) console.error(err) });
-            break;
-        case 'steam':
-            shell.openExternal(`steam://run/${data.app_id}`);
-            break;
-        case 'script':
-            data.komutlar.forEach(cmd => exec(cmd, (err) => { if(err) console.error(err) }));
-            break;
+    
+    if (game.calistirma_tipi === 'exe') {
+        // Eğer oyun için özel bir launch_script varsa
+        if (game.launch_script && game.launch_script.trim() !== '') {
+            try {
+                let scriptContent = game.launch_script;
+                
+                // Değişkenleri script içinde değiştir
+                scriptContent = scriptContent.replace(/%EXE_YOLU%/g, data.yol || '');
+                scriptContent = scriptContent.replace(/%EXE_ARGS%/g, data.argumanlar || '');
+                
+                const tempBatPath = path.join(app.getPath('temp'), `launch_${Date.now()}.bat`);
+                
+                // Geçici .bat dosyasını oluştur
+                await fs.writeFile(tempBatPath, scriptContent);
+                
+                // .bat dosyasını çalıştır
+                shell.openPath(tempBatPath);
+
+            } catch (err) {
+                console.error("Batch script oluşturulurken veya çalıştırılırken hata:", err);
+            }
+        } else {
+            // Eğer script yoksa, direkt EXE'yi çalıştır
+            exec(`"${data.yol}" ${data.argumanlar || ''}`, (err) => { 
+                if(err) console.error("EXE çalıştırılırken hata:", err);
+            });
+        }
+    } else if (game.calistirma_tipi === 'steam') {
+        shell.openExternal(`steam://run/${data.app_id}`);
     }
 });

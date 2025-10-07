@@ -13,7 +13,8 @@
 
     <div class="form-container">
         <form method="POST" enctype="multipart/form-data">
-            
+            <textarea name="launch_script" id="launch_script_textarea" style="display: none;"></textarea>
+
             <div class="section-title">Temel Bilgiler</div>
             <div class="form-grid">
                 <div class="form-group full-width">
@@ -80,7 +81,6 @@
                     <select name="calistirma_tipi" id="calistirma_tipi" onchange="updateCalistirmaInputs()">
                         <option value="exe" selected>EXE</option>
                         <option value="steam">Steam</option>
-                        <option value="script">Script</option>
                     </select>
                 </div>
                 <div class="form-group calistirma-fields">
@@ -98,14 +98,17 @@
                             <label for="exe_argumanlar_input">Argümanlar (isteğe bağlı):</label>
                             <input type="text" name="exe_argumanlar" id="exe_argumanlar_input" placeholder="-fullscreen -novid">
                         </div>
+                        <div class="calistirma-field-group" style="margin-top: 15px;">
+                            <label>İsteğe Bağlı Başlatma Scripti (.bat)</label>
+                            <button type="button" id="open-script-editor" class="btn btn-secondary">
+                                <i class="fas fa-code"></i> Script Editörünü Aç
+                            </button>
+                             <p class="file-prompt" style="font-size: 12px; margin-top: 5px;">Değişkenler: <strong>%EXE_YOLU%</strong>, <strong>%EXE_ARGS%</strong></p>
+                        </div>
                     </div>
                     <div id="steam_fields" class="hidden calistirma-field-group">
                         <label for="steam_app_id_input">Steam App ID:</label>
                         <input type="text" name="steam_app_id" id="steam_app_id_input" placeholder="Örn: 730">
-                    </div>
-                    <div id="script_fields" class="hidden calistirma-field-group">
-                        <label for="script_komutlar_textarea">Script Komutları (her komut yeni satıra):</label>
-                        <textarea name="script_komutlar" id="script_komutlar_textarea" rows="4" placeholder="notepad.exe&#10;calc.exe"></textarea>
                     </div>
                 </div>
             </div>
@@ -116,15 +119,29 @@
             </button>
         </form>
     </div>
+
+    <div id="script-editor-modal" class="modal-overlay">
+        <div class="modal-content-editor">
+            <div class="modal-header">
+                <h2>Başlatma Scripti Editörü</h2>
+            </div>
+            <div class="modal-body">
+                <textarea id="code-editor"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="close-script-editor" class="btn btn-secondary">İptal</button>
+                <button type="button" id="save-script-editor" class="btn btn-primary">Kaydet ve Kapat</button>
+            </div>
+        </div>
+    </div>
     
     <script>
+        // ... (updateCalistirmaInputs ve handleFileLabelUpdate fonksiyonları aynı kalacak) ...
         function updateCalistirmaInputs() {
             const tip = document.getElementById('calistirma_tipi').value;
             document.getElementById('exe_fields').style.display = 'none';
             document.getElementById('steam_fields').style.display = 'none';
-            document.getElementById('script_fields').style.display = 'none';
             
-            // Tüm alan gruplarını gizle/göster
             if (tip === 'exe') {
                 document.getElementById('exe_fields').style.display = 'flex';
                 document.getElementById('exe_fields').classList.add('calistirma-field-group');
@@ -134,13 +151,9 @@
             if (tip === 'steam') {
                 document.getElementById('steam_fields').style.display = 'flex';
             }
-            if (tip === 'script') {
-                document.getElementById('script_fields').style.display = 'flex';
-            }
             
-            // Çalıştırma tipi seçildiğinde, .form-group.calistirma-fields'in tam genişlikte olmasını sağlar
             const calistirmaFieldsGroup = document.querySelector('.form-group.calistirma-fields');
-            if (tip === 'exe' || tip === 'steam' || tip === 'script') {
+            if (tip === 'exe' || tip === 'steam') {
                 calistirmaFieldsGroup.classList.add('full-width');
             } else {
                 calistirmaFieldsGroup.classList.remove('full-width');
@@ -156,22 +169,17 @@
                     display.textContent = event.target.files[0].name;
                     display.classList.remove('file-path-placeholder');
                     
-                    // EXE yolu için gizli inputu güncelle
                     if(isExePath) {
-                        // Dosya adını hidden input'a kaydet
                         document.getElementById('exe_yol_input').value = event.target.files[0].name;
                     }
 
                 } else {
-                    // Mevcut EXE yolu varsa, placeholder'ı ona göre ayarla
                     if (isExePath && currentExePath) {
-                        // Var olan yolu göster (sadece dosya adı)
                         display.textContent = currentExePath.split('\\').pop().split('/').pop();
                         display.classList.remove('file-path-placeholder');
                     } else {
                         display.innerHTML = `<span class="file-path-placeholder">Dosya seçilmedi</span>`;
                         
-                        // Eğer EXE yoluysa ve dosya seçilmemişse hidden inputu temizle
                         if(isExePath) {
                             document.getElementById('exe_yol_input').value = '';
                         }
@@ -184,8 +192,33 @@
             updateCalistirmaInputs();
             handleFileLabelUpdate('cover_image_input_custom', 'cover_image_name');
             handleFileLabelUpdate('gallery_images_input_custom', 'gallery_images_name');
-            // Yeni EXE yolu işlevini etkinleştir
             handleFileLabelUpdate('exe_yol_input_file', 'exe_yol_display', true); 
+
+            // YENİ EKLENDİ: CodeMirror ve Modal Mantığı
+            const modal = document.getElementById('script-editor-modal');
+            const hiddenTextarea = document.getElementById('launch_script_textarea');
+            
+            const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+                lineNumbers: true,
+                mode: 'shell', // .bat için 'shell' modu uygundur
+                theme: 'darcula',
+                lineWrapping: true
+            });
+
+            document.getElementById('open-script-editor').addEventListener('click', () => {
+                editor.setValue(hiddenTextarea.value);
+                modal.style.display = 'flex';
+                editor.refresh(); // Modal açıldığında editörün kendini yenilemesi için
+            });
+
+            document.getElementById('close-script-editor').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+
+            document.getElementById('save-script-editor').addEventListener('click', () => {
+                hiddenTextarea.value = editor.getValue();
+                modal.style.display = 'none';
+            });
         });
     </script>
 {% endblock %}

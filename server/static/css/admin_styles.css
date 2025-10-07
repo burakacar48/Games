@@ -6,16 +6,13 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    /* Tasarımın ana arkaplanı */
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     min-height: 100vh;
     padding: 20px;
-    color: #f1f5f9; /* Temel yazı rengi */
-    
-    /* FIX: Arka planın tekrarlanmasını önler ve ekranı kaplamasını sağlar */
+    color: #f1f5f9;
     background-repeat: no-repeat;
     background-size: cover;
-    background-attachment: fixed; /* Arka planı kaydırmadan sabitler (opsiyonel) */
+    background-attachment: fixed;
 }
 
 .container {
@@ -24,7 +21,6 @@ body {
     display: grid;
     grid-template-columns: 280px 1fr;
     gap: 20px;
-    /* Sayfanın tamamını kaplamasını sağlamak için */
     height: calc(100vh - 40px);
 }
 
@@ -35,9 +31,7 @@ body {
     padding: 30px 20px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     overflow-y: auto;
-    /* Kırmızı vurgu rengi */
     border: 1px solid rgba(220, 38, 38, 0.2);
-    /* YENİ/DÜZELTME: Grid hücresini tamamen doldurur */
     height: 100%;
 }
 
@@ -45,13 +39,11 @@ body {
     text-align: center;
     margin-bottom: 40px;
     padding-bottom: 20px;
-    /* Kırmızı vurgu rengi */
     border-bottom: 2px solid rgba(220, 38, 38, 0.3);
 }
 
 .logo i {
     font-size: 48px;
-    /* Kırmızı gradyan vurgusu */
     background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -97,7 +89,6 @@ body {
 }
 
 .menu-item.active {
-    /* Kırmızı gradyan vurgusu */
     background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
     color: white;
 }
@@ -107,7 +98,6 @@ body {
     margin-right: 12px;
     font-size: 16px;
 }
-/* --- Sidebar Stilleri Bitiş --- */
 
 /* --- Ana İçerik Stilleri --- */
 .main-content {
@@ -115,12 +105,10 @@ body {
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    /* overflow-y: auto; kaldırıldı, flex ile yönetilecek */
     border: 1px solid rgba(220, 38, 38, 0.2);
-    /* YENİ/DÜZELTME: Esnek boyutu zorlar ve boşluğu doldurur */
     display: flex; 
     flex-direction: column; 
-    height: 100%; /* Grid hücresini tamamen doldurur */
+    height: 100%;
 }
 
 .header {
@@ -128,7 +116,6 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 30px;
-    /* Header'ın esnemesini engeller, sabit kalmasını sağlar */
     flex-shrink: 0; 
 }
 
@@ -136,7 +123,6 @@ body {
     font-size: 28px;
     color: #f1f5f9;
     font-weight: 700;
-    /* Eski h2/h3 alt çizgilerini kaldırır */
     border-bottom: none; 
     padding-bottom: 0;
     margin-top: 0;
@@ -160,10 +146,10 @@ body {
     align-items: center;
     gap: 8px;
     text-decoration: none;
+    justify-content: center; /* DÜZELTME: Bu satır eklendi */
 }
 
 .btn-primary {
-    /* Kırmızı gradyan vurgusu */
     background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
     color: white;
 }
@@ -183,14 +169,15 @@ body {
     background: rgba(148, 163, 184, 0.2);
     transform: translateY(-1px);
 }
-/* --- Buton İkon Stilleri (Düzenle/Sil) --- */
+
+/* --- Buton İkon Stilleri --- */
 .action-buttons {
     display: flex;
     gap: 10px;
 }
 
 .actions-form {
-    display: contents; /* Butonları aynı hizada tutar */
+    display: contents;
 }
 
 .btn-icon {
@@ -207,7 +194,6 @@ body {
 }
 
 .btn-edit {
-    /* Mavi vurgu */
     background: rgba(59, 130, 246, 0.2);
     color: #60a5fa;
     border: 1px solid rgba(59, 130, 246, 0.3);
@@ -219,7 +205,6 @@ body {
 }
 
 .btn-delete {
-    /* Kırmızı vurgu */
     background: rgba(239, 68, 68, 0.2);
     color: #f87171;
     border: 1px solid rgba(239, 68, 68, 0.3);
@@ -229,9 +214,8 @@ body {
     background: rgba(239, 68, 68, 0.3);
     transform: translateY(-2px);
 }
-/* --- Genel Buton Stilleri Bitiş --- */
 
-/* --- Arama Çubuğu Stilleri --- */
+/* --- Arama Çubuğu --- */
 .search-bar {
     position: relative;
     flex: 1;
@@ -240,7 +224,6 @@ body {
 
 .search-bar input {
     width: 100%;
-    /* Sağdaki butona yer açmak için padding-right ayarlandı */
     padding: 12px 55px 12px 20px; 
     border: 2px solid rgba(220, 38, 38, 0.3);
     border-radius: 12px;
@@ -260,7 +243,6 @@ body {
     color: #64748b;
 }
 
-/* Yeni stil: Kırmızı butonun üstünde büyüteç simgesini ortalar */
 .search-bar .search-icon-btn {
     border-radius: 0 12px 12px 0;
     position: absolute;
@@ -269,13 +251,10 @@ body {
     width: 50px;
     height: 100%;
     padding: 0;
-    
     display: flex; 
     align-items: center; 
     justify-content: center;
 }
-/* --- Arama Çubuğu Stilleri Bitiş --- */
-
 
 /* --- Tablo Stilleri --- */
 .games-table {
@@ -284,8 +263,6 @@ body {
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(220, 38, 38, 0.2);
-    
-    /* YENİ/DÜZELTME: Esnek boşluk doldurma */
     flex-grow: 1;
     overflow-y: auto;
 }
@@ -296,7 +273,6 @@ table {
 }
 
 thead {
-    /* Kırmızı gradyan vurgusu */
     background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
 }
 
@@ -328,7 +304,7 @@ tbody td {
     padding: 18px 20px;
     color: #cbd5e1;
     font-size: 14px;
-    white-space: normal; /* İçerik taşmasını önler */
+    white-space: normal;
 }
 
 .game-name {
@@ -336,7 +312,6 @@ tbody td {
     color: #f1f5f9;
 }
 
-/* Kategori Rozeti (Badge) Stilleri */
 .badge {
     display: inline-block;
     padding: 6px 12px;
@@ -345,12 +320,7 @@ tbody td {
     font-weight: 600;
 }
 
-.badge-fps { /* Örnek kategori rengi */
-    background: rgba(16, 185, 129, 0.2);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-.badge-default { /* Genel kategori rengi */
+.badge-default {
     background: rgba(59, 130, 246, 0.2);
     color: #60a5fa;
     border: 1px solid rgba(59, 130, 246, 0.3);
@@ -361,8 +331,6 @@ tbody td {
     color: #fb923c;
     border: 1px solid rgba(251, 146, 60, 0.3);
 }
-/* --- Tablo Stilleri Bitiş --- */
-
 
 /* --- Form Stilleri --- */
 .form-container {
@@ -371,10 +339,7 @@ tbody td {
     padding: 30px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(220, 38, 38, 0.2);
-    
-    /* YENİ/DÜZELTME: Esnek boşluk doldurma */
     flex-grow: 1;
-    /* Kaydırma çubuğunun form içinde görünmesini sağlar, form kısa ise esner */
     overflow-y: auto; 
 }
 
@@ -384,7 +349,6 @@ tbody td {
     color: #f1f5f9;
     margin-bottom: 20px;
     padding-bottom: 10px;
-    /* Kırmızı vurgu rengi */
     border-bottom: 2px solid rgba(220, 38, 38, 0.3);
 }
 
@@ -422,7 +386,7 @@ tbody td {
     font-family: inherit;
     background: rgba(30, 30, 46, 0.8);
     color: #f1f5f9;
-    box-sizing: border-box; /* padding'in genişliği etkilememesi için */
+    box-sizing: border-box;
 }
 
 .form-group input::placeholder,
@@ -448,7 +412,7 @@ tbody td {
     font-size: 13px;
     margin-bottom: 10px;
 }
-/* File upload component, only for custom label positioning */
+
 .custom-file-input-wrapper {
     display: flex;
     align-items: center;
@@ -475,14 +439,12 @@ tbody td {
 .image-preview {
     border-radius: 8px;
     border: 1px solid rgba(220, 38, 38, 0.3);
-    /* YENİ: Kapak resmi boyutları 240x340px olarak ayarlandı. */
     width: 240px; 
     height: 340px; 
     max-width: 100%;
-    object-fit: cover; /* Boyutlara tam oturmasını sağlar */
+    object-fit: cover;
     margin-bottom: 15px;
 }
-/* Galeri Yönetimi Stilleri */
 .gallery-container {
     display: flex;
     flex-wrap: wrap;
@@ -542,7 +504,7 @@ tbody td {
     background-color: rgba(220, 38, 38, 0.8); 
 }
 
-/* --- Scrollbar Stilleri --- */
+/* --- Scrollbar --- */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -554,7 +516,6 @@ tbody td {
 }
 
 ::-webkit-scrollbar-thumb {
-    /* Kırmızı gradyan vurgusu */
     background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
     border-radius: 10px;
 }
@@ -563,19 +524,17 @@ tbody td {
     background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
 }
 
-/* --- YENİ EKLENEN/GÜNCELLENEN CSS KURALLARI --- */
+/* --- Diğer Stiller --- */
 .form-group.calistirma-fields {
-    /* Çalıştırma tipi seçildiğinde görünen alanları barındıran üst grup */
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Alt alanlar arasına boşluk ekler */
+    gap: 15px;
 }
 
 .calistirma-field-group {
-    /* EXE Yolu/Argümanlar, Steam ID gibi alt gruplar */
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Etiket ve input arasına boşluk ekler */
+    gap: 8px;
 }
 
 .calistirma-field-group label {
@@ -599,7 +558,7 @@ tbody td {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    min-height: 44px; /* Buton yüksekliği ile hizalamak için */
+    min-height: 44px;
     display: flex;
     align-items: center;
     box-sizing: border-box;
@@ -610,11 +569,7 @@ tbody td {
     font-style: italic;
 }
 
-/* Mevcut input, select, textarea bloğuna yeni .calistirma-field-group içindeki inputları dahil et */
-.form-group input,
-.form-group select,
-.form-group textarea,
-.calistirma-field-group input { /* Bu yeni kural eklendi */
+.calistirma-field-group input {
     padding: 12px 16px;
     border: 2px solid rgba(220, 38, 38, 0.3);
     border-radius: 12px;
@@ -626,42 +581,33 @@ tbody td {
     box-sizing: border-box; 
 }
 
-/* YENİ EKLENDİ: Tek Satırlık Kompakt Form Düzeni */
 .single-row-form {
     display: flex;
     align-items: flex-end;
     gap: 20px;
 }
 
-/* Tek satırlık formun içindeki grup için özel stil */
 .single-row-form .form-group {
     flex-grow: 1;
-    margin-bottom: 0; /* Ana form stilini ezer */
+    margin-bottom: 0;
 }
 
 .single-row-form .form-group label {
-    /* Label ve input arasındaki boşluğu daha da azaltmak için */
     margin-bottom: 5px; 
 }
 
-/* YENİ EKLENDİ: Kompakt Dikey Padding */
 .form-container.compact-vertical-padding {
-    /* Normalde padding: 30px; olurdu. Şimdi dikeyde daha az boşluk veriyoruz. */
     padding: 15px 30px;
-    
-    /* GEREKSİZ BÜYÜMEYİ ENGELLE */
     flex-grow: 0; 
     flex-shrink: 0;
     overflow-y: visible;
 }
 
-/* YENİ EKLENDİ: Gösterge Paneli Stilleri */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 30px;
     margin-bottom: 40px;
-    /* FLEX-GROW: 0 yapıldı, böylece Formlar/Tablolar esnerken, bu alan sabit kalır */
     flex-shrink: 0; 
 }
 
@@ -704,12 +650,10 @@ tbody td {
     font-weight: 500;
 }
 
-/* Renk Vurguları */
-.stat-games .stat-icon i { color: #60a5fa; } /* Mavi */
-.stat-categories .stat-icon i { color: #34d399; } /* Yeşil */
-.stat-users .stat-icon i { color: #f87171; } /* Kırmızı */
+.stat-games .stat-icon i { color: #60a5fa; }
+.stat-categories .stat-icon i { color: #34d399; }
+.stat-users .stat-icon i { color: #f87171; }
 
-/* YENİ: Son Eklenen Oyunlar Tablo Stilleri */
 .recent-games-table {
     width: 100%;
     border-collapse: collapse;
@@ -723,7 +667,6 @@ tbody td {
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    /* Kırmızı gradyanı games-table thead'den alır */
     background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
 }
 
@@ -741,4 +684,68 @@ tbody td {
     color: #cbd5e1;
     font-size: 14px;
     vertical-align: middle;
+}
+
+/* Script Editör Modal Stilleri */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content-editor {
+    background: #1e1e2e;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 800px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.modal-header {
+    padding: 15px 25px;
+    border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    font-size: 18px;
+    color: #f1f5f9;
+}
+
+.modal-body {
+    flex-grow: 1;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.modal-footer {
+    padding: 15px 25px;
+    border-top: 1px solid rgba(220, 38, 38, 0.2);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.CodeMirror {
+    height: 100% !important;
+    border-radius: 0 0 16px 16px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
 }

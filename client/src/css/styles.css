@@ -77,42 +77,48 @@ body.custom-background::before {
 }
 .user-info { color: #b8b8d1; font-size: 14px; font-weight: 500; }
 .user-info span { font-weight: bold; color: #fff; }
-.btn-login, .btn-logout {
-    /* GÜNCELLENDİ: Dinamik Renk Kullanımı */
+
+/* DÜZENLENDİ: Butonlar için ortak stiller */
+.btn-login, .btn-logout, .btn-saved-games {
     background: linear-gradient(135deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%);
     border: none; padding: 8px 20px; border-radius: 25px;
     color: white; cursor: pointer; font-weight: 600; font-size: 13px;
     transition: all 0.3s ease;
-    /* IŞIMA KALDIRILDI, SUBTLE SHADOW EKLENDİ (Login/Logout Butonları) */
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); 
 }
-.btn-login:hover, .btn-logout:hover {
+
+.btn-login:hover, .btn-logout:hover, .btn-saved-games:hover {
     transform: translateY(-2px);
-    /* SUBTLE SHADOW ARTIRILDI */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
 }
+
+/* YENİ EKLENDİ: Kayıtlı Oyunlarım butonu için özel stiller */
+.btn-saved-games {
+    background: rgba(59, 130, 246, 0.8); /* Mavi arkaplan */
+}
+.btn-saved-games.active {
+    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+
 .container { max-width: 1400px; margin: 0 auto; padding: 60px 40px; }
 
-/* --- GÜNCELLENDİ: H1 için DÜZELTİLMİŞ Sade Gradyan Kayma Efekti --- */
 .header { text-align: center; margin-top: 40px; margin-bottom: 60px; }
 .header h1 {
     font-family: 'Pricedown Black', 'Arial Black', sans-serif;
     font-size: 64px;
     font-weight: normal;
     margin-bottom: 15px;
-    /* FIX: Doğrudan ana tema renklerini kullanır */
     background: linear-gradient(90deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%);
     -webkit-background-clip: text; 
     -webkit-text-fill-color: transparent;
     letter-spacing: 2px;
-    
-    /* YENİ EFEKT: Gradyanın Kaymasını Sağlar */
-    background-size: 200% auto; /* Gradyan boyutunu metin alanından büyük yapar */
-    animation: header-slide 4s linear infinite alternate; /* Yavaş, pürüzsüz kayma */
-    text-shadow: none; /* Işıma kaldırıldı, netlik sağlandı */
+    background-size: 200% auto;
+    animation: header-slide 4s linear infinite alternate;
+    text-shadow: none;
 }
 
-/* YENİ EKLENDİ: Gradyan Kayma Animasyonu */
 @keyframes header-slide {
     0% {
         background-position: 0% 50%;
@@ -133,8 +139,7 @@ body.custom-background::before {
 }
 .game-card:hover { 
     transform: translateY(-10px) scale(1.02); 
-    /* IŞIMA AZALTILDI (Oyun Kartları) */
-    box-shadow: 0 10px 25px var(--theme-primary-start); /* Önceki değer: 0 20px 40px */
+    box-shadow: 0 10px 25px var(--theme-primary-start); 
     border-color: var(--theme-primary-start); 
 }
 .game-image { width: 100%; height: 340px; object-fit: cover; transition: transform 0.4s ease; }
@@ -148,13 +153,11 @@ body.custom-background::before {
     border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.3s ease;
 }
 .stat-item:hover { 
-    /* GÜNCELLENDİ: Hover arka planı başlangıç renginden alınmıştır */
     background: color-mix(in srgb, var(--theme-primary-start) 20%, transparent); 
     transform: translateY(-5px); 
 }
 .stat-value {
     font-size: 36px; font-weight: 700;
-    /* GÜNCELLENDİ: Dinamik Renk Kullanımı */
     background: linear-gradient(90deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 8px;
@@ -169,16 +172,14 @@ body.custom-background::before {
 }
 .search-input:focus {
     background: rgba(10, 10, 10, 0.9); 
-    /* GÜNCELLENDİ: Sınır rengi başlangıç renginden alınmıştır */
     border-color: var(--theme-primary-start); 
     box-shadow: 0 0 20px var(--theme-primary-start);
 }
 .search-input::placeholder { color: #b8b8d1; }
 .search-icon { position: absolute; right: 25px; top: 50%; transform: translateY(-50%); color: #b8b8d1; }
-.categories { display: flex; gap: 15px; overflow-x: auto; padding: 10px 0 30px 0; margin-bottom: 20px; scrollbar-width: thin; /* GÜNCELLENDİ */ scrollbar-color: var(--theme-primary-start) transparent; }
+.categories { display: flex; gap: 15px; overflow-x: auto; padding: 10px 0 30px 0; margin-bottom: 20px; scrollbar-width: thin; scrollbar-color: var(--theme-primary-start) transparent; }
 .categories::-webkit-scrollbar { height: 6px; }
 .categories::-webkit-scrollbar-track { background: transparent; }
-/* GÜNCELLENDİ */
 .categories::-webkit-scrollbar-thumb { background: var(--theme-primary-start); border-radius: 4px; } 
 
 .category-chip {
@@ -186,31 +187,28 @@ body.custom-background::before {
     border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 50px;
     color: #b8b8d1; font-size: 14px; font-weight: 600; cursor: pointer;
     transition: all 0.3s ease; white-space: nowrap; backdrop-filter: blur(10px);
-    /* IŞIMA KALDIRILDI, SUBTLE SHADOW EKLENDİ */
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 .category-chip:hover { 
-    /* GÜNCELLENDİ */
     background: color-mix(in srgb, var(--theme-primary-start) 20%, transparent); 
     border-color: var(--theme-primary-start); 
     color: #fff; 
     transform: translateY(-2px); 
 }
 .category-chip.active {
-    /* GÜNCELLENDİ: Dinamik Renk Kullanımı */
     background: linear-gradient(135deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%);
     border-color: transparent; color: #fff;
-    /* IŞIMA KALDIRILDI, SUBTLE SHADOW EKLENDİ */
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 .category-chip.favorites.active {
     background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
     box-shadow: 0 4px 15px rgba(229, 62, 62, 0.4);
 }
-.favorite-icon {
+.favorite-icon, .save-icon {
     width: 1em;
     height: 1em;
     fill: currentColor;
+    vertical-align: middle; /* İkonu yazıya göre ortalar */
 }
 .category-chip.favorites .favorite-icon {
     fill: #e53e3e;
@@ -220,6 +218,7 @@ body.custom-background::before {
 .category-chip.favorites.active .favorite-icon {
     fill: #fff;
 }
+
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes gradient-slide {
     0% { background-position: 0% 50%; }
@@ -230,20 +229,27 @@ body.custom-background::before {
 .close-button { color: #aaa; position: absolute; top: 15px; right: 25px; font-size: 35px; font-weight: bold; cursor: pointer; z-index: 1001; }
 .close-button:hover, .close-button:focus { color: white; }
 .modal-content { background-color: #1e1e1e; border: 1px solid #444; margin: 15% auto; padding: 40px; width: 80%; max-width: 400px; border-radius: 12px; position: relative; text-align: center; z-index: 2001;}
-/* GÜNCELLENDİ */
-.modal-content h1 { background: linear-gradient(90deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+.modal-content h1 {
+    background: linear-gradient(90deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 25px;
+}
+
 .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; border-radius: 8px; border: 1px solid #444; background-color: #333; color: white; font-size: 16px; }
 .modal-content button { 
     width: 100%; padding: 12px; border: none; border-radius: 8px; 
-    /* GÜNCELLENDİ */
     background: linear-gradient(135deg, var(--theme-primary-start) 0%, var(--theme-primary-end) 100%); 
     color: white; cursor: pointer; font-size: 16px; font-weight: bold; 
-    /* IŞIMA KALDIRILDI, SUBTLE SHADOW EKLENDİ (Modal Butonu) */
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); 
 }
+#login-form {
+    margin-bottom: 15px;
+}
 .error-message { color: #ff4d4d; height: 20px; }
-/* GÜNCELLENDİ */
 #modal-switch a { color: var(--theme-primary-start); }
+
 .hidden { display: none; }
 .detail-modal-content { max-width: 1000px; width: 90%; background: none; border: none; text-align: left; margin: 5% auto; padding: 20px; position: relative; z-index: 2001;}
 .detail-modal-content h1 { font-size: 36px; margin-bottom: 20px; -webkit-text-fill-color: white; }
@@ -253,7 +259,6 @@ body.custom-background::before {
 .media-column #detail-main-media img, .media-column #detail-main-media iframe { width: 100%; height: 100%; display: block; object-fit: contain; border: none; }
 #detail-thumbnail-strip { display: flex; gap: 10px; overflow-x: auto; padding: 10px 0; flex-shrink: 0; }
 .thumbnail-item { cursor: pointer; border: 2px solid transparent; border-radius: 4px; transition: border-color 0.2s; flex-shrink: 0; }
-/* GÜNCELLENDİ */
 .thumbnail-item.active { border-color: var(--theme-primary-start); }
 .thumbnail-item img, .thumbnail-item .video-thumb { width: 120px; height: 67px; object-fit: cover; display: block; border-radius: 2px; }
 .video-thumb { background-color: #000; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; position: relative; }
@@ -267,18 +272,16 @@ body.custom-background::before {
     border-radius: 8px; 
     font-size: 13px; 
 }
-/* YENİ EKLENDİ: İkonlar için düzenlemeler */
 #detail-meta .meta-item .meta-label {
     display: flex;
     align-items: center;
-    gap: 8px; /* İkon ve metin arası boşluk */
-    white-space: nowrap; /* İkon ve metnin ayrılmasını önler */
+    gap: 8px; 
+    white-space: nowrap; 
 }
 #detail-meta .meta-item .meta-label i {
-    color: var(--theme-primary-start); /* İkon rengini temaya uygun yapar */
-    font-size: 16px; /* İkon boyutunu belirler */
+    color: var(--theme-primary-start); 
+    font-size: 16px;
 }
-/* Bitiş */
 .meta-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 .meta-item:last-child { border-bottom: none; }
 .meta-label { color: #aaa; }
@@ -289,7 +292,7 @@ body.custom-background::before {
 .stars-outer { position: relative; display: inline-block; cursor: pointer; }
 .stars-outer::before { 
     content: '★★★★★'; 
-    font-size: 32px; /* FIX 3: Büyüme/Kayma sorununu engeller */
+    font-size: 32px;
     color: #4a5568; 
 }
 .stars-inner { 
@@ -302,7 +305,7 @@ body.custom-background::before {
 }
 .stars-inner::before { 
     content: '★★★★★'; 
-    font-size: 32px; /* FIX 3: Büyüme/Kayma sorununu engeller */
+    font-size: 32px;
     color: #ffc107; 
 }
 .favorite-button { width: 50px; height: 50px; background-color: rgba(255, 255, 255, 0.1); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s ease-in-out; margin: 0 auto; }
@@ -315,30 +318,24 @@ body.custom-background::before {
 .play-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(72, 187, 120, 0.6); }
 .similar-games-section { margin-top: 40px; padding-top: 30px; border-top: 1px solid #444; }
 .similar-games-section h2 { font-size: 20px; margin-bottom: 20px; color: #a0aec0; border-bottom: none; padding-bottom: 0; }
-/* FIX: Benzer Oyunlar kutu genişliği 133px olarak ayarlandı */
 .similar-games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(133px, 1fr)); gap: 15px; } 
 
 .similar-game-card { background-color: rgba(30, 30, 40, 0.8); border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.3s ease; border: 1px solid transparent; }
 .similar-game-card:hover { 
     transform: translateY(-5px); 
-    /* GÜNCELLENDİ */
     border-color: var(--theme-primary-start); 
 }
-/* ÇÖZÜM: object-fit: fill kullanıldı ve DİKEY HİZALAMA SORUNU için display: block eklendi. */
 .similar-game-card img { 
     width: 100%; 
     height: 200px; 
     object-fit: fill; 
-    display: block; /* Sola/Sağa hizalama sorunlarını giderir */
+    display: block; 
 } 
 .similar-game-card h4 { font-size: 14px; font-weight: 600; padding: 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* FIX: Hatalı seçiciyi düzelterek scrollbar temasını etkinleştiriyoruz */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-/* GÜNCELLENDİ */
 ::-webkit-scrollbar-thumb { background-color: var(--theme-primary-start); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { 
-    /* GÜNCELLENDİ */
     background-color: var(--theme-primary-end); 
 }

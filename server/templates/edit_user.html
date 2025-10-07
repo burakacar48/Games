@@ -4,7 +4,7 @@
 
 {% block content %}
     <div class="header">
-        <h1>"{{ user.username }}" Kullanıcısının Şifresini Değiştir</h1>
+        <h1>"{{ user.username }}" Kullanıcısını Düzenle</h1>
         <a href="{{ url_for('manage_users') }}" class="btn btn-primary">
             <i class="fas fa-arrow-left"></i>
             Geri Dön
@@ -13,16 +13,20 @@
 
     <div class="form-container">
         <form method="POST">
-            <div class="section-title">Yeni Şifre</div>
+            <div class="section-title">Kullanıcı Bilgileri</div>
             <div class="form-grid">
                 <div class="form-group full-width">
-                    <label for="new_password">Yeni Şifre (en az 5 karakter):</label>
-                    <input type="password" name="new_password" id="new_password" required minlength="5">
+                    <label for="username">Kullanıcı Adı (en az 3 karakter):</label>
+                    <input type="text" name="username" id="username" value="{{ user.username }}" required minlength="3">
+                </div>
+                <div class="form-group full-width">
+                    <label for="new_password">Yeni Şifre (isteğe bağlı, en az 5 karakter):</label>
+                    <input type="password" name="new_password" id="new_password" minlength="5" placeholder="Değiştirmek istemiyorsanız boş bırakın">
                 </div>
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
                 <i class="fas fa-save"></i>
-                Şifreyi Güncelle
+                Değişiklikleri Kaydet
             </button>
         </form>
     </div>
