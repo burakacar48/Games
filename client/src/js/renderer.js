@@ -6,17 +6,20 @@ window.addEventListener('DOMContentLoaded', () => {
     let allCategories = [];
     let userRatings = {};
     let userFavorites = new Set();
-    let userSaves = new Set(); 
+    let userSaves = new Set();
+    let currentFilter = 'all';
 
-    let appSettings = {};
-    const body = document.body;
-    
-    const gameListContainer = document.getElementById('game-list');
-    const userSessionContainer = document.getElementById('user-session');
-    const searchInput = document.getElementById('search-input');
-    const statsBar = document.getElementById('stats-bar');
-    const categoryListContainer = document.getElementById('category-list');
-    
+    // === Arayüz Elementleri ===
+    const gamesGrid = document.getElementById('gamesGrid');
+    const searchInput = document.getElementById('searchInput');
+    const sectionTitle = document.getElementById('sectionTitle');
+    const userActions = document.getElementById('user-actions');
+    const usernameDisplay = document.getElementById('username-display');
+    const categoryListSidebar = document.getElementById('category-list-sidebar');
+    const heroSection = document.querySelector('.hero-section');
+
+
+    // === Giriş Modal Elementleri ===
     const loginModal = document.getElementById('login-modal');
     const loginForm = document.getElementById('login-form');
     const loginError = document.getElementById('login-error');
@@ -25,6 +28,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalSwitchToRegister = document.getElementById('to-register');
     const modalSwitchToLogin = document.getElementById('to-login');
     
+    // === OYUN DETAY MODAL ELEMENTLERİ ===
     const gameDetailModal = document.getElementById('game-detail-modal');
     const detailTitle = document.getElementById('detail-title');
     const detailDescription = document.getElementById('detail-description');
@@ -33,242 +37,172 @@ window.addEventListener('DOMContentLoaded', () => {
     const thumbnailStrip = document.getElementById('detail-thumbnail-strip');
     const playButtonArea = document.getElementById('play-button-area');
     const userRatingStars = document.getElementById('user-rating-stars');
-    const userRatingInner = userRatingStars ? userRatingStars.querySelector('.stars-inner') : null; 
+    const userRatingInner = userRatingStars ? userRatingStars.querySelector('.stars-inner') : null;
     const averageRatingSummary = document.getElementById('average-rating-summary');
     const favoriteButton = document.getElementById('favorite-button');
     const similarGamesSection = document.querySelector('.similar-games-section');
     const similarGamesGrid = document.getElementById('similar-games-grid');
 
-    const updateUserUI = () => {
-        if (authToken) {
-            userSessionContainer.innerHTML = `
-                <button id="saved-games-button" class="btn-saved-games">Kayıtlı Oyunlarım</button>
-                <span class="user-info">👤 ${currentUser}</span>
-                <button id="logout-button" class="btn-logout">Çıkış Yap</button>
-            `;
-            document.getElementById('logout-button').addEventListener('click', handleLogout);
-            document.getElementById('saved-games-button').addEventListener('click', () => {
-                document.querySelector('.category-chip.active')?.classList.remove('active');
-                document.getElementById('saved-games-button').classList.add('active');
-                filterGames('Kayıtlı Oyunlarım'); 
+
+    // Oyunları ana grid'de render eden fonksiyon
+    const renderGames = (filter = 'all', searchTerm = '') => {
+        let filtered = allGames;
+
+        if (filter !== 'all' && filter !== 'favorites' && filter !== 'recent') {
+            filtered = allGames.filter(g => g.kategori === filter);
+        } else if (filter === 'favorites') {
+             if (!authToken) {
+                alert("Favorilerinizi görmek için giriş yapmalısınız.");
+                document.querySelector('.nav-item[data-category="all"]').click();
+                return;
+            }
+            filtered = allGames.filter(g => userFavorites.has(g.id));
+        }
+
+        if (searchTerm) {
+            filtered = filtered.filter(g => g.oyun_adi.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+
+        gamesGrid.innerHTML = '';
+        if (filtered.length > 0) {
+            filtered.forEach(game => {
+                const gameCard = `
+                    <div class="game-card" data-game-id="${game.id}">
+                        <div class="game-image-wrapper">
+                            <img src="${SERVER_URL}/static/images/covers/${game.cover_image}" alt="${game.oyun_adi}" class="game-image" onerror="this.src='https://via.placeholder.com/400x500/1a1a1a/ef4444?text=${encodeURIComponent(game.oyun_adi)}'">
+                            <div class="game-overlay">
+                                <div class="play-btn">ℹ️</div>
+                            </div>
+                        </div>
+                        <div class="game-info">
+                            <div class="game-title">${game.oyun_adi}</div>
+                            <div class="game-category">${game.kategori || 'Kategorisiz'}</div>
+                        </div>
+                    </div>
+                `;
+                gamesGrid.innerHTML += gameCard;
             });
         } else {
-            userSessionContainer.innerHTML = `
-                <button id="show-login-button" class="btn-login">Giriş Yap / Kayıt Ol</button>
-            `;
-            document.getElementById('show-login-button').addEventListener('click', openLoginModal);
+            gamesGrid.innerHTML = '<p style="color: #aaa; grid-column: 1 / -1; text-align: center;">Bu kategoride oyun bulunamadı.</p>';
         }
-        renderCategories(); 
-    };
-
-    const renderGames = (gamesToRender) => {
-        gameListContainer.innerHTML = '';
-        if (!gamesToRender || gamesToRender.length === 0) {
-            gameListContainer.innerHTML = '<p style="text-align: center; grid-column: 1 / -1; color: #b8b8d1;">Oyun bulunamadı.</p>';
-            statsBar.innerHTML = '';
-            return;
-        }
-        gamesToRender.forEach((game, index) => {
-            const imageUrl = `${SERVER_URL}/static/images/covers/${game.cover_image}`;
-            const card = document.createElement('div');
-            card.className = 'game-card';
-            card.dataset.gameId = game.id;
-            card.style.animationDelay = `${index * 0.05}s`;
-            card.innerHTML = `
-                <img src="${imageUrl}" alt="${game.oyun_adi}" class="game-image">
-                <div class="game-info">
-                    <h3 class="game-title">${game.oyun_adi}</h3>
-                </div>
-            `;
-            gameListContainer.appendChild(card);
-        });
-        statsBar.innerHTML = `
-            <div class="stat-item">
-                <div class="stat-value">${allGames.length}</div>
-                <div class="stat-label">Toplam Oyun Sayısı</div>
-            </div>
-        `;
+        updateSectionTitle(filter);
     };
     
+    // === OYUN DETAY FONKSİYONLARI ===
+
+    const showGameDetail = (game) => {
+        detailTitle.textContent = game.oyun_adi;
+        detailDescription.textContent = game.aciklama || "Açıklama bulunmuyor.";
+        
+        detailMeta.innerHTML = `
+            <div class="meta-item">
+                <span><i class="fas fa-tags"></i> Kategori:</span>
+                <span>${game.kategori||'N/A'}</span>
+            </div>
+            <div class="meta-item">
+                <span><i class="fas fa-calendar-alt"></i> Çıkış Yılı:</span>
+                <span>${game.cikis_yili||'N/A'}</span>
+            </div>
+            <div class="meta-item">
+                <span><i class="fas fa-shield-alt"></i> PEGI:</span>
+                <span>${game.pegi||'N/A'}</span>
+            </div>`;
+
+        updateRatingDisplay(game);
+        updateFavoriteDisplay(game.id);
+        thumbnailStrip.innerHTML = '';
+        mainMedia.innerHTML = '';
+        
+        if (game.youtube_id) {
+            const videoThumb = document.createElement('div');
+            videoThumb.className = 'thumbnail-item active';
+            videoThumb.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${game.youtube_id}/mqdefault.jpg)"><i class="fas fa-play"></i></div>`;
+            mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${game.youtube_id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
+            videoThumb.addEventListener('click', () => {
+                document.querySelector('.thumbnail-item.active')?.classList.remove('active');
+                videoThumb.classList.add('active');
+                mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${game.youtube_id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
+            });
+            thumbnailStrip.appendChild(videoThumb);
+        }
+
+        if (game.galeri && game.galeri.length > 0) {
+            game.galeri.forEach((imgFile, index) => {
+                const imgThumb = document.createElement('div');
+                imgThumb.className = 'thumbnail-item';
+                const imgSrc = `${SERVER_URL}/static/images/gallery/${imgFile}`;
+                imgThumb.innerHTML = `<img src="${imgSrc}">`;
+                imgThumb.addEventListener('click', () => {
+                    document.querySelector('.thumbnail-item.active')?.classList.remove('active');
+                    imgThumb.classList.add('active');
+                    mainMedia.innerHTML = `<img src="${imgSrc}">`;
+                });
+                thumbnailStrip.appendChild(imgThumb);
+                if (!game.youtube_id && index === 0) {
+                    imgThumb.click();
+                }
+            });
+        }
+        
+        playButtonArea.innerHTML = '';
+        playButtonArea.style.flexDirection = 'column';
+
+        const playButton = document.createElement('button');
+        playButton.className = 'hero-btn primary';
+        playButton.innerHTML = '▶ Şimdi Oyna';
+        playButton.dataset.gameId = game.id;
+        playButton.addEventListener('click', () => {
+            closeGameDetail();
+            syncAndLaunch(game);
+        });
+        
+        if (game.kategori !== 'Online Oyunlar' && game.yuzde_yuz_save_path) {
+            playButtonArea.style.flexDirection = 'row';
+            const saveButton = document.createElement('button');
+            saveButton.className = 'hero-btn secondary';
+            saveButton.textContent = '%100 SAVE';
+            saveButton.addEventListener('click', () => {
+                handle100Save(game.id, game.save_yolu);
+            });
+            playButtonArea.appendChild(saveButton);
+        }
+
+        playButtonArea.appendChild(playButton);
+
+        if (gameDetailModal) gameDetailModal.style.display = 'flex';
+        
+        const similarGames = allGames.filter(g => g.kategori === game.kategori && g.id !== game.id).slice(0, 5);
+        renderSimilarGames(similarGames);
+    };
+
+    const closeGameDetail = () => {
+        if (gameDetailModal) gameDetailModal.style.display = 'none';
+        mainMedia.innerHTML = '';
+        if (similarGamesSection) similarGamesSection.classList.add('hidden');
+    };
+
     const renderSimilarGames = (similarGames) => {
         if (!similarGamesGrid) return;
         similarGamesGrid.innerHTML = '';
-        
+
         if (similarGames && similarGames.length > 0) {
             similarGames.forEach(game => {
-                const imageUrl = `${SERVER_URL}/static/images/covers/${game.cover_image}`;
-                const card = document.createElement('div');
-                card.className = 'similar-game-card';
-                card.dataset.gameId = game.id;
-                card.innerHTML = `
-                    <img src="${imageUrl}" alt="${game.oyun_adi}">
-                    <h4>${game.oyun_adi}</h4>
-                `;
-                card.addEventListener('click', (e) => {
-                    e.stopPropagation(); 
-                    closeGameDetail();
-                    const gameDetails = allGames.find(g => g.id == game.id);
-                    if(gameDetails) showGameDetail(gameDetails);
-                });
-                similarGamesGrid.appendChild(card);
+                const card = `
+                <div class="game-card similar" data-game-id="${game.id}">
+                    <div class="game-image-wrapper">
+                        <img src="${SERVER_URL}/static/images/covers/${game.cover_image}" alt="${game.oyun_adi}" class="game-image">
+                    </div>
+                    <div class="game-info">
+                        <div class="game-title">${game.oyun_adi}</div>
+                    </div>
+                </div>`;
+                similarGamesGrid.innerHTML += card;
             });
             if (similarGamesSection) similarGamesSection.classList.remove('hidden');
         } else {
             if (similarGamesSection) similarGamesSection.classList.add('hidden');
         }
     };
-
-    const handleCategoryClick = (clickedChip) => {
-        document.querySelector('.category-chip.active')?.classList.remove('active');
-        document.getElementById('saved-games-button')?.classList.remove('active');
-        
-        clickedChip.classList.add('active');
-        filterGames();
-        
-        window.scrollTo({
-            top: document.querySelector('.search-bar').offsetTop - 20,
-            behavior: 'smooth'
-        });
-    };
-
-    const renderCategories = () => {
-        categoryListContainer.innerHTML = '';
-        
-        const allChip = document.createElement('div');
-        allChip.className = 'category-chip active';
-        allChip.textContent = 'Tümü';
-        allChip.dataset.category = 'Tümü';
-        allChip.addEventListener('click', () => handleCategoryClick(allChip));
-        categoryListContainer.appendChild(allChip);
-
-        const onlineGamesCategory = 'Online Oyunlar';
-        if (allCategories.includes(onlineGamesCategory)) {
-            const onlineChip = document.createElement('div');
-            onlineChip.className = 'category-chip';
-            onlineChip.textContent = onlineGamesCategory;
-            onlineChip.dataset.category = onlineGamesCategory;
-            onlineChip.addEventListener('click', () => handleCategoryClick(onlineChip));
-            categoryListContainer.appendChild(onlineChip);
-        }
-
-        if (authToken) {
-            const favChip = document.createElement('div');
-            favChip.className = 'category-chip favorites';
-            favChip.dataset.category = 'Favorilerim';
-            favChip.innerHTML = `<svg class="favorite-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"/></svg> <span>Favorilerim</span>`;
-            favChip.addEventListener('click', () => handleCategoryClick(favChip));
-            categoryListContainer.appendChild(favChip);
-        }
-
-        const remainingCategories = allCategories.filter(c => c !== onlineGamesCategory);
-        remainingCategories.forEach(categoryName => {
-            const chip = document.createElement('div');
-            chip.className = 'category-chip';
-            chip.textContent = categoryName;
-            chip.dataset.category = categoryName;
-            chip.addEventListener('click', () => handleCategoryClick(chip));
-            categoryListContainer.appendChild(chip);
-        });
-    };
-
-    const filterGames = (overrideCategory = null) => {
-        const searchTerm = searchInput.value.toLowerCase();
-        let activeCategory = overrideCategory;
-        if (!activeCategory) {
-            const activeChip = document.querySelector('.category-chip.active, .btn-saved-games.active');
-            if (activeChip) {
-                activeCategory = activeChip.dataset.category || activeChip.textContent;
-            } else {
-                activeCategory = 'Tümü';
-            }
-        }
-
-        let filtered = allGames;
-        
-        if (activeCategory === 'Kayıtlı Oyunlarım') {
-            filtered = filtered.filter(game => userSaves.has(game.id));
-        } else if (activeCategory === 'Favorilerim') {
-            if (!authToken) {
-                alert("Favorilerinizi görmek için giriş yapmalısınız.");
-                handleCategoryClick(document.querySelector('.category-chip[data-category="Tümü"]'));
-                return;
-            }
-            filtered = filtered.filter(game => userFavorites.has(game.id));
-        } else if (activeCategory !== 'Tümü') {
-            filtered = filtered.filter(game => game.kategori === activeCategory);
-        }
-
-        if (searchTerm) {
-            filtered = filtered.filter(game => 
-                game.oyun_adi.toLowerCase().includes(searchTerm)
-            );
-        }
-        renderGames(filtered);
-    };
-
-    // GÜNCELLENDİ: Hem oyunları hem de kategorileri çeken fonksiyon
-    const fetchData = () => {
-        const gamesPromise = fetch(`${SERVER_URL}/api/games`).then(res => res.json());
-        const categoriesPromise = fetch(`${SERVER_URL}/api/categories`).then(res => res.json());
-
-        Promise.all([gamesPromise, categoriesPromise])
-            .then(([games, categories]) => {
-                allGames = games;
-                allCategories = categories; // Artık tüm kategorileri buradan alıyoruz
-                
-                renderCategories();
-                filterGames();
-            })
-            .catch(err => {
-                console.error(err);
-                gameListContainer.innerHTML = `<p style="color: red; text-align: center; grid-column: 1 / -1;">Oyun listesi veya kategoriler alınamadı.</p>`;
-            });
-    };
-    
-    // ... (diğer fonksiyonlar aynı kalacak) ...
-    const fetchSettings = () => {
-        fetch(`${SERVER_URL}/api/settings`).then(res => {
-            if (!res.ok) {
-                throw new Error(`API hatası: ${res.status}`);
-            }
-            return res.json();
-        }).then(settings => {
-            appSettings = settings;
-            
-            document.title = settings.cafe_name || "Zenka Internet Cafe"; 
-            
-            const headerH1 = document.querySelector('.header h1');
-            const headerP = document.querySelector('.header p');
-            if(headerH1) headerH1.textContent = settings.cafe_name || "Zenka Internet Cafe";
-            if(headerP) headerP.textContent = settings.slogan || "Hazırsan, oyun başlasın.";
-            
-            const startColor = settings.primary_color_start || '#667eea';
-            const endColor = settings.primary_color_end || '#764ba2';
-            
-            body.style.setProperty('--theme-primary-start', startColor);
-            body.style.setProperty('--theme-primary-end', endColor);
-            
-            const opacityFactor = parseFloat(settings.background_opacity_factor) || 1.0;
-
-            if (settings.background_type === 'custom_bg' && settings.background_file) {
-                const imageUrl = `${SERVER_URL}/static/images/backgrounds/${settings.background_file}`;
-                body.classList.add('custom-background');
-                body.style.setProperty('--custom-bg-image', `url(${imageUrl})`);
-            } else {
-                body.classList.remove('custom-background');
-                body.style.removeProperty('--custom-bg-image'); 
-            }
-            
-            body.style.setProperty('--custom-bg-factor', opacityFactor); 
-
-        }).catch(err => {
-            console.error("Ayarlar çekilemedi:", err);
-            const headerH1 = document.querySelector('.header h1');
-            const headerP = document.querySelector('.header p');
-            if(headerH1) headerH1.textContent = "Zenka Internet Cafe";
-            if(headerP) headerP.textContent = "Hazırsan, oyun başlasın.";
-        });
-    }
     
     const updateRatingDisplay = (game) => {
         const avgRating = game.average_rating ? game.average_rating.toFixed(1) : 'N/A';
@@ -283,7 +217,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const updateFavoriteDisplay = (gameId) => {
         if (favoriteButton) {
-            favoriteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"/></svg>`;
+            favoriteButton.innerHTML = `<i class="fas fa-heart"></i>`;
             if (userFavorites.has(gameId)) {
                 favoriteButton.classList.add('is-favorite');
             } else {
@@ -291,96 +225,192 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+
+    // === Diğer Fonksiyonlar ===
+    const updateSectionTitle = (filter) => {
+        const titles = {
+            'all': 'Tüm Oyunlar',
+            'favorites': 'Favori Oyunlarım',
+            'recent': 'Son Oynanan Oyunlar',
+        };
+        sectionTitle.textContent = titles[filter] || `${filter} Oyunları`;
+    };
+
+    const fetchGameAndCategories = () => {
+        Promise.all([
+            fetch(`${SERVER_URL}/api/games`).then(res => res.json()),
+            fetch(`${SERVER_URL}/api/categories`).then(res => res.json())
+        ]).then(([games, categories]) => {
+            allGames = games;
+            allCategories = categories;
+            renderCategories();
+            renderGames();
+            updateHeroSection();
+        }).catch(error => console.error('Veri çekme hatası:', error));
+    };
     
-    const recordGameClick = (gameId) => {
-        fetch(`${SERVER_URL}/api/games/${gameId}/click`, { method: 'POST' })
-            .catch(err => console.error(`Tıklama kaydedilemedi: ${err}`));
+    const updateHeroSection = () => {
+        if (allGames.length === 0) return;
+        const popularGame = allGames.sort((a, b) => b.click_count - a.click_count)[0];
+        
+        const heroTitle = heroSection.querySelector('.hero-title');
+        const heroDescription = heroSection.querySelector('.hero-description');
+        const heroBg = heroSection.querySelector('.hero-bg');
+        const heroPlayButton = heroSection.querySelector('.hero-btn.primary');
+        const heroDetailButton = heroSection.querySelector('.hero-btn.secondary');
+
+        heroTitle.textContent = popularGame.oyun_adi;
+        heroDescription.textContent = popularGame.aciklama;
+        const bgImageUrl = (popularGame.galeri && popularGame.galeri.length > 0) ?
+            `${SERVER_URL}/static/images/gallery/${popularGame.galeri[0]}` :
+            `${SERVER_URL}/static/images/covers/${popularGame.cover_image}`;
+        heroBg.src = bgImageUrl;
+        
+        heroPlayButton.onclick = () => {
+             const game = allGames.find(g => g.id == popularGame.id);
+             if (game) syncAndLaunch(game);
+        };
+        heroDetailButton.onclick = () => {
+             const game = allGames.find(g => g.id == popularGame.id);
+             if (game) showGameDetail(game);
+        };
     };
 
-    const showGameDetail = (game) => {
-        detailTitle.textContent = game.oyun_adi;
-        detailDescription.textContent = game.aciklama || "Açıklama yok.";
-        
-        detailMeta.innerHTML = `
-            <div class="meta-item">
-                <span class="meta-label"><i class="fas fa-tags"></i> Kategori:</span>
-                <span>${game.kategori||'N/A'}</span>
-            </div>
-            <div class="meta-item">
-                <span class="meta-label"><i class="fas fa-calendar-alt"></i> Çıkış Yılı:</span>
-                <span>${game.cikis_yili||'N/A'}</span>
-            </div>
-            <div class="meta-item">
-                <span class="meta-label"><i class="fas fa-shield-alt"></i> PEGI:</span>
-                <span>${game.pegi||'N/A'}</span>
-            </div>`;
+    const renderCategories = () => {
+        categoryListSidebar.innerHTML = '';
+        allCategories.forEach(categoryName => {
+            const navItem = document.createElement('div');
+            navItem.className = 'nav-item';
+            navItem.dataset.category = categoryName;
+            let icon = '🎮';
+            if (categoryName.toLowerCase().includes('aksiyon') || categoryName.toLowerCase().includes('fps')) icon = '⚔️';
+            if (categoryName.toLowerCase().includes('spor')) icon = '⚽';
+            if (categoryName.toLowerCase().includes('yarış')) icon = '🏎️';
+            if (categoryName.toLowerCase().includes('online')) icon = '👥';
+            if (categoryName.toLowerCase().includes('strateji')) icon = '🎯';
 
-        updateRatingDisplay(game);
-        updateFavoriteDisplay(game.id);
-        thumbnailStrip.innerHTML = ''; mainMedia.innerHTML = '';
-        if (game.youtube_id) {
-            const videoThumb = document.createElement('div');
-            videoThumb.className = 'thumbnail-item active';
-            videoThumb.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${game.youtube_id}/mqdefault.jpg)"><svg viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></div>`;
-            mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${game.youtube_id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
-            videoThumb.addEventListener('click', () => {
-                document.querySelector('.thumbnail-item.active')?.classList.remove('active');
-                videoThumb.classList.add('active');
-                mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${game.youtube_id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
-            });
-            thumbnailStrip.appendChild(videoThumb);
-        }
-        if (game.galeri && game.galeri.length > 0) {
-            game.galeri.forEach((imgFile, index) => {
-                const imgThumb = document.createElement('div');
-                imgThumb.className = 'thumbnail-item';
-                const imgSrc = `${SERVER_URL}/static/images/gallery/${imgFile}`;
-                imgThumb.innerHTML = `<img src="${imgSrc}">`;
-                imgThumb.addEventListener('click', () => {
-                    document.querySelector('.thumbnail-item.active')?.classList.remove('active');
-                    imgThumb.classList.add('active');
-                    mainMedia.innerHTML = `<img src="${imgSrc}">`;
-                });
-                thumbnailStrip.appendChild(imgThumb);
-                if (!game.youtube_id && index === 0) { imgThumb.click(); }
-            });
-        }
-        
-        playButtonArea.innerHTML = ''; 
-
-        const playButton = document.createElement('button');
-        playButton.className = 'play-button';
-        playButton.textContent = 'OYNA';
-        playButton.dataset.gameId = game.id;
-        playButton.addEventListener('click', () => {
-            closeGameDetail();
-            syncAndLaunch(game);
+            navItem.innerHTML = `<span class="nav-icon">${icon}</span> ${categoryName}`;
+            categoryListSidebar.appendChild(navItem);
         });
-        
-        if (game.kategori !== 'Online Oyunlar' && game.yuzde_yuz_save_path) {
-            const saveButton = document.createElement('button');
-            saveButton.className = 'save-button';
-            saveButton.textContent = '%100 SAVE';
-            saveButton.addEventListener('click', () => {
-                handle100Save(game.id, game.save_yolu);
-            });
-            playButtonArea.appendChild(saveButton);
-        }
-
-        playButtonArea.appendChild(playButton);
-
-        if (gameDetailModal) gameDetailModal.style.display = 'block';
-        
-        const similarGames = allGames.filter(g => 
-            g.kategori === game.kategori && g.id !== game.id
-        ).slice(0, 4); 
-        renderSimilarGames(similarGames); 
+        addCategoryEventListeners();
     };
 
-    const closeGameDetail = () => { 
-        if (gameDetailModal) gameDetailModal.style.display = 'none'; 
-        mainMedia.innerHTML = ''; 
-        if (similarGamesSection) similarGamesSection.classList.add('hidden'); 
+    const addCategoryEventListeners = () => {
+        document.querySelectorAll('.nav-item[data-category]').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item.active').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.dataset.category;
+                renderGames(currentFilter, searchInput.value);
+            });
+        });
+    };
+
+    const updateUserUI = () => {
+        if (authToken) {
+            userActions.innerHTML = `
+                <button class="action-btn">Kayıtlı Oyunlar</button>
+                <button class="action-btn primary" id="logout-button">Çıkış Yap</button>
+            `;
+            usernameDisplay.textContent = currentUser;
+            document.getElementById('logout-button').addEventListener('click', handleLogout);
+        } else {
+            userActions.innerHTML = `
+                <button class="action-btn primary" id="login-show-button">Giriş Yap / Kayıt ol</button>
+            `;
+            usernameDisplay.textContent = 'Misafir';
+            document.getElementById('login-show-button').addEventListener('click', openLoginModal);
+        }
+    };
+    
+    const handleLogout = () => {
+        authToken = null;
+        currentUser = null;
+        userFavorites.clear();
+        updateUserUI();
+        if (currentFilter === 'favorites') {
+            document.querySelector('.nav-item[data-category="all"]').click();
+        } else {
+            renderGames(currentFilter, searchInput.value);
+        }
+    };
+    
+    const openLoginModal = () => {
+        setModalMode('login');
+        if (loginModal) loginModal.style.display = 'flex';
+        const usernameInput = document.getElementById('username');
+        if (usernameInput) usernameInput.focus();
+    };
+
+    const closeLoginModal = () => {
+        if (loginModal) loginModal.style.display = 'none';
+    };
+    
+    const setModalMode = (mode) => {
+        if (loginForm && loginError && modalTitle && modalButton && modalSwitchToRegister && modalSwitchToLogin) {
+            loginForm.reset();
+            loginError.textContent = '';
+            if (mode === 'login') {
+                modalTitle.textContent = 'Giriş Yap';
+                modalButton.textContent = 'Giriş';
+                loginForm.dataset.mode = 'login';
+                modalSwitchToRegister.classList.remove('hidden');
+                modalSwitchToLogin.classList.add('hidden');
+            } else {
+                modalTitle.textContent = 'Kayıt Ol';
+                modalButton.textContent = 'Kayıt Ol';
+                loginForm.dataset.mode = 'register';
+                modalSwitchToRegister.classList.add('hidden');
+                modalSwitchToLogin.classList.remove('hidden');
+            }
+        }
+    };
+    
+    const handleLogin = (event) => {
+        event.preventDefault();
+        const mode = loginForm.dataset.mode;
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const endpoint = (mode === 'login') ? '/api/login' : '/api/register';
+
+        fetch(SERVER_URL + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.mesaj);
+                return data;
+            })
+            .then(data => {
+                if (mode === 'login') {
+                    authToken = data.token;
+                    currentUser = username;
+                    closeLoginModal();
+                    updateUserUI();
+                    fetchUserSpecificData();
+                } else {
+                    if (loginError) loginError.textContent = data.mesaj;
+                    setTimeout(() => setModalMode('login'), 2000);
+                }
+            })
+            .catch(error => {
+                if (loginError) loginError.textContent = error.message;
+            });
+    };
+    
+    const fetchUserSpecificData = () => {
+        if (!authToken) return;
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        Promise.all([
+            fetch(`${SERVER_URL}/api/user/favorites`, { headers }).then(res => res.json()),
+            fetch(`${SERVER_URL}/api/user/ratings`, { headers }).then(res => res.json())
+        ]).then(([favorites, ratings]) => {
+            userFavorites = new Set(favorites);
+            userRatings = ratings;
+            renderGames(currentFilter, searchInput.value);
+        });
     };
     
     const syncAndLaunch = async (game) => {
@@ -393,138 +423,64 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const handle100Save = async (gameId, savePath) => {
-        if (!authToken) {
-            alert("Bu özelliği kullanmak için giriş yapmalısınız.");
-            openLoginModal();
-            return;
-        }
-
-        if (!savePath) {
-            alert("Bu oyun için bir save yolu tanımlanmamış.");
-            return;
-        }
-
-        if (!confirm("%100 save dosyasını yüklemek, mevcut kayıtlarınızın üzerine yazacaktır. Devam etmek istiyor musunuz?")) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`${SERVER_URL}/api/games/${gameId}/100save`, {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.mesaj || 'Bilinmeyen bir hata oluştu.');
-            }
-
-            const saveDataBlob = await response.blob();
-            const saveDataBuffer = await saveDataBlob.arrayBuffer();
-
-            const result = await window.electronAPI.unzipSave({ saveDataBuffer, savePath });
-
-            if (result.success) {
-                alert("%100 save başarıyla yüklendi!");
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (error) {
-            alert(`Save dosyası yüklenirken bir hata oluştu: ${error.message}`);
-        }
-    };
-
-    const setModalMode = (mode) => {
-        if (loginForm && loginError && modalTitle && modalButton && modalSwitchToRegister && modalSwitchToLogin) {
-            loginForm.reset(); loginError.textContent = '';
-            if (mode === 'login') {
-                modalTitle.textContent = 'Giriş Yap'; modalButton.textContent = 'Giriş'; loginForm.dataset.mode = 'login';
-                modalSwitchToRegister.classList.remove('hidden'); modalSwitchToLogin.classList.add('hidden');
-            } else {
-                modalTitle.textContent = 'Kayıt Ol'; modalButton.textContent = 'Kayıt Ol'; loginForm.dataset.mode = 'register';
-                modalSwitchToRegister.classList.add('hidden'); modalSwitchToLogin.classList.remove('hidden');
-            }
-        }
-    };
-    const openLoginModal = () => { setModalMode('login'); if (loginModal) loginModal.style.display = 'block'; const usernameInput = document.getElementById('username'); if (usernameInput) usernameInput.focus(); };
-    const closeLoginModal = () => { if (loginModal) loginModal.style.display = 'none'; };
-
-    const handleLogin = (event) => {
-        event.preventDefault();
-        const mode = loginForm.dataset.mode;
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const endpoint = (mode === 'login') ? '/api/login' : '/api/register';
-        fetch(SERVER_URL + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
-            .then(async response => { const data = await response.json(); if (!response.ok) { throw new Error(data.mesaj); } return data; })
-            .then(data => {
-                if (mode === 'login') {
-                    authToken = data.token; currentUser = username;
-                    closeLoginModal(); updateUserUI();
-                    
-                    const ratingsPromise = fetch(`${SERVER_URL}/api/user/ratings`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json());
-                    const favoritesPromise = fetch(`${SERVER_URL}/api/user/favorites`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json());
-                    const savesPromise = fetch(`${SERVER_URL}/api/user/saves`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json());
-
-                    Promise.all([ratingsPromise, favoritesPromise, savesPromise]).then(([ratings, favorites, saves]) => {
-                        userRatings = ratings;
-                        userFavorites = new Set(favorites);
-                        userSaves = new Set(saves);
-                        filterGames(); 
-                    });
-
-                } else {
-                    if (loginError) loginError.textContent = data.mesaj;
-                    setTimeout(() => setModalMode('login'), 2000);
-                }
-            })
-            .catch(error => { if (loginError) loginError.textContent = error.message; });
-    };
-
-    const handleLogout = () => {
-        authToken = null; currentUser = null; userRatings = {}; userFavorites.clear(); userSaves.clear();
-        updateUserUI();
-        filterGames();
-    };
-
-    // --- Olay Dinleyicileri ---
-    
-    if (searchInput) searchInput.addEventListener('input', () => filterGames());
-
-    if (gameListContainer) {
-        gameListContainer.addEventListener('click', (e) => {
-            const card = e.target.closest('.game-card');
-            if (card) { const game = allGames.find(g => g.id == card.dataset.gameId); if(game) showGameDetail(game); }
-        });
-    }
-
-    if (loginForm) loginForm.addEventListener('submit', handleLogin);
-    
-    document.querySelectorAll('.close-button').forEach(btn => { 
-        btn.addEventListener('click', () => { closeLoginModal(); closeGameDetail(); }); 
+    // === OLAY DİNLEYİCİLERİ ===
+    searchInput.addEventListener('input', (e) => {
+        renderGames(currentFilter, e.target.value);
     });
     
-    if (modalSwitchToRegister && modalSwitchToRegister.querySelector('a')) {
-        modalSwitchToRegister.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('register'); });
-    }
-    if (modalSwitchToLogin && modalSwitchToLogin.querySelector('a')) {
-        modalSwitchToLogin.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('login'); });
-    }
+    gamesGrid.addEventListener('click', (e) => {
+        const card = e.target.closest('.game-card');
+        if (card) {
+            const gameId = card.dataset.gameId;
+            const game = allGames.find(g => g.id == gameId);
+            if (game) {
+                showGameDetail(game);
+            }
+        }
+    });
+
+    similarGamesGrid.addEventListener('click', (e) => {
+        const card = e.target.closest('.game-card.similar');
+        if(card){
+            const gameId = card.dataset.gameId;
+            const game = allGames.find(g => g.id == gameId);
+            if(game) {
+                closeGameDetail();
+                setTimeout(() => showGameDetail(game), 100);
+            }
+        }
+    });
+
+    document.querySelectorAll('.close-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            closeLoginModal();
+            closeGameDetail();
+        });
+    });
+    
+    modalSwitchToRegister.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('register'); });
+    modalSwitchToLogin.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('login'); });
+    loginForm.addEventListener('submit', handleLogin);
     
     if (userRatingStars && userRatingInner) {
         userRatingStars.addEventListener('mousemove', e => {
+            if (!authToken) return;
             const rect = userRatingStars.getBoundingClientRect();
             const hoverWidth = e.clientX - rect.left;
             const rating = Math.max(0.5, Math.ceil((hoverWidth / rect.width) * 10) / 2);
             userRatingInner.style.width = `${(rating / 5) * 100}%`;
         });
+
         userRatingStars.addEventListener('mouseleave', () => {
-            const gameId = playButtonArea.querySelector('.play-button')?.dataset.gameId;
+            const gameId = playButtonArea.querySelector('.hero-btn.primary')?.dataset.gameId;
             if (gameId && allGames.length > 0) { const game = allGames.find(g => g.id == gameId); if (game) updateRatingDisplay(game); }
         });
+
         userRatingStars.addEventListener('click', async e => {
-            if (!authToken) { alert("Puan vermek için giriş yapmalısınız."); openLoginModal(); return; }
-            const gameId = playButtonArea.querySelector('.play-button')?.dataset.gameId;
+            if (!authToken) { openLoginModal(); return; }
+            const gameId = playButtonArea.querySelector('.hero-btn.primary')?.dataset.gameId;
+            if(!gameId) return;
+
             const rect = userRatingStars.getBoundingClientRect();
             const clickWidth = e.clientX - rect.left;
             const rating = Math.max(0.5, Math.ceil((clickWidth / rect.width) * 10) / 2);
@@ -541,17 +497,19 @@ window.addEventListener('DOMContentLoaded', () => {
                 game.average_rating = result.average_rating;
                 game.rating_count = result.rating_count;
                 updateRatingDisplay(game);
-                alert(`Puanınız (${rating}) başarıyla kaydedildi!`);
+                console.log(`Puanınız (${rating}) başarıyla kaydedildi!`);
             } catch (error) {
-                alert(`Puan kaydedilirken hata oluştu: ${error.message}`);
+                console.error(`Puan kaydedilirken hata oluştu: ${error.message}`);
             }
         });
     }
 
-    if (favoriteButton && playButtonArea) {
+    if (favoriteButton) {
         favoriteButton.addEventListener('click', async () => {
-            if (!authToken) { alert("Favorilere eklemek için giriş yapmalısınız."); openLoginModal(); return; }
-            const gameId = parseInt(playButtonArea.querySelector('.play-button')?.dataset.gameId, 10);
+            if (!authToken) { openLoginModal(); return; }
+            const gameId = parseInt(playButtonArea.querySelector('.hero-btn.primary')?.dataset.gameId, 10);
+            if(!gameId) return;
+            
             try {
                 const response = await fetch(`${SERVER_URL}/api/games/${gameId}/favorite`, {
                     method: 'POST',
@@ -562,18 +520,24 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (result.is_favorite) { userFavorites.add(gameId); } 
                 else { userFavorites.delete(gameId); }
                 updateFavoriteDisplay(gameId);
-                filterGames();
             } catch (error) {
-                alert(`Bir hata oluştu: ${error.message}`);
+                console.error(`Bir hata oluştu: ${error.message}`);
             }
         });
     }
 
-    window.addEventListener('click', (e) => { 
-        if (e.target.classList.contains('modal')) { closeLoginModal(); closeGameDetail(); }
+    window.addEventListener('click', (e) => {
+        if (e.target == loginModal || e.target == gameDetailModal) {
+            closeLoginModal();
+            closeGameDetail();
+        }
     });
 
-    fetchSettings();
-    fetchData(); // GÜNCELLENDİ: Artık bu fonksiyon hem oyunları hem kategorileri çekiyor.
-    updateUserUI(); 
+    // Başlangıç
+    fetchGameAndCategories();
+    updateUserUI();
 });
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('active');
+}

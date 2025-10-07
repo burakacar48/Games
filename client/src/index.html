@@ -8,30 +8,82 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div id="user-session" class="login-panel">
+    <aside class="sidebar" id="sidebar">
+        <div class="logo-section">
+            <div class="logo">ZENKA</div>
+            <div class="tagline">Internet Cafe</div>
+        </div>
+        <nav class="nav-section">
+            <div class="nav-title">Menü</div>
+            <div class="nav-item active" data-category="all">
+                <span class="nav-icon">🏠</span>
+                Ana Sayfa
+            </div>
+            <div class="nav-item" data-category="favorites">
+                <span class="nav-icon">❤️</span>
+                Favorilerim
+            </div>
+            <div class="nav-item" data-category="recent">
+                <span class="nav-icon">🕐</span>
+                Son Oynananlar
+            </div>
+            <div class="nav-title" id="category-title">Kategoriler</div>
+            <div id="category-list-sidebar">
+                </div>
+            <div class="nav-title">Diğer</div>
+            <div class="nav-item">
+                <span class="nav-icon">⚙️</span>
+                Ayarlar
+            </div>
+            <div class="nav-item">
+                <span class="nav-icon">💬</span>
+                Destek
+            </div>
+        </nav>
+        <div class="user-section">
+            <div class="user-avatar">K</div>
+            <div class="user-info">
+                <div class="user-name" id="username-display">Kullanıcı</div>
+                <div class="user-status">🟢 Çevrimiçi</div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="top-bar">
+            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+            <div class="search-box">
+                <input type="text" placeholder="Oyun ara..." id="searchInput">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div class="top-actions" id="user-actions">
+                </div>
         </div>
 
-    <div class="container">
-        <div class="header">
-            <h1 id="header-title">Zenka Internet Cafe</h1>
-            <p>Hazırsan, oyun başlasın.</p>
+        <div class="hero-section">
+            <img src="https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg" class="hero-bg" alt="Featured">
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+                <div class="hero-badge">🔥 Popüler</div>
+                <h1 class="hero-title">Counter-Strike 2</h1>
+                <p class="hero-description">En popüler FPS oyunlarından biri! Arkadaşlarınla veya yeni insanlarla takım kur, strateji geliştir ve kazanmak için savaş.</p>
+                <div class="hero-actions">
+                    <button class="hero-btn primary">▶ Şimdi Oyna</button>
+                    <button class="hero-btn secondary">ℹ️ Detaylar</button>
+                </div>
+            </div>
         </div>
 
-        <div class="search-bar">
-            <input type="text" id="search-input" class="search-input" placeholder="Oyun ara...">
-            <span class="search-icon">🔍</span>
+        <div class="content-section">
+            <div class="section-header">
+                <h2 class="section-title" id="sectionTitle">Tüm Oyunlar</h2>
+                <span class="view-all">Tümünü Gör →</span>
+            </div>
+            <div class="games-grid" id="gamesGrid">
+                </div>
         </div>
-
-        <div id="category-list" class="categories">
-            </div>
-
-        <div id="game-list" class="games-grid">
-            </div>
-
-        <div id="stats-bar" class="stats-bar">
-            </div>
-    </div>
-
+    </main>
+    
     <div id="login-modal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -48,8 +100,8 @@
             </div>
         </div>
     </div>
-
-    <div id="game-detail-modal" class="modal">
+    
+    <div id="game-detail-modal" class="modal detail-modal">
         <div class="modal-content detail-modal-content">
             <span class="close-button">&times;</span>
             <h1 id="detail-title">Oyun Adı</h1>
@@ -60,7 +112,6 @@
                 </div>
                 <div class="info-column">
                     <h2>Oyun Bilgileri</h2>
-                    <p id="detail-description"></p>
                     <div id="detail-meta"></div>
                     <div class="interactive-section">
                         <div class="rating-container">
@@ -71,18 +122,22 @@
                         </div>
                         <div class="favorite-container">
                             <h2>Favori</h2>
-                            <div id="favorite-button" class="favorite-button">
-                            </div>
+                            <div id="favorite-button" class="favorite-button"></div>
                         </div>
                     </div>
                     <div class="rating-summary" id="average-rating-summary"></div>
+                    <div class="hero-actions" id="play-button-area" style="margin-top: 20px; flex-direction: column;">
+                        </div>
                 </div>
             </div>
-            <div class="play-button-container" id="play-button-area">
+            <div class="full-width-section">
+                <div class="description-section">
+                    <h2>Açıklama</h2>
+                    <p id="detail-description"></p>
                 </div>
-            <div class="similar-games-section hidden">
-                <h2>Benzer Oyunlar</h2>
-                <div id="similar-games-grid" class="similar-games-grid">
+                <div class="similar-games-section hidden">
+                    <h2>Benzer Oyunlar</h2>
+                    <div class="games-grid" id="similar-games-grid"></div>
                 </div>
             </div>
         </div>
