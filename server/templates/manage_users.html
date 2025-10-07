@@ -1,0 +1,31 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Üye Bilgileri{% endblock %}
+
+{% block content %}
+    <h2>Üye Bilgileri</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Kullanıcı Adı</th>
+                <th>İşlemler</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>
+                    <a href="{{ url_for('edit_user', user_id=user.id) }}" class="button button-blue">Şifre Değiştir</a>
+                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="actions-form">
+                        <button type="submit" class="button-red" onclick="return confirm('`{{ user.username }}` kullanıcısını ve tüm save dosyalarını silmek istediğine emin misin?');">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

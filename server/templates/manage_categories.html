@@ -1,0 +1,39 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Kategori Yönetimi{% endblock %}
+
+{% block content %}
+    <h2>Kategori Yönetimi</h2>
+    
+    <form method="POST">
+        <h3>Yeni Kategori Ekle</h3>
+        <div class="form-full-width">
+            <label for="name">Kategori Adı:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        <button type="submit" class="button-green">Ekle</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Kategori Adı</th>
+                <th>İşlemler</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
+            <tr>
+                <td>{{ category.id }}</td>
+                <td>{{ category.name }}</td>
+                <td>
+                    <form action="{{ url_for('delete_category', category_id=category.id) }}" method="POST" class="actions-form">
+                        <button type="submit" class="button-red" onclick="return confirm('Bu kategoriyi silmek, bu kategorideki tüm oyunların kategorisiz kalmasına neden olur. Emin misin?');">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

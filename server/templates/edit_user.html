@@ -1,0 +1,21 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Kullanıcı Düzenle{% endblock %}
+
+{% block content %}
+    <h2>"{{ user.username }}" Kullanıcısının Şifresini Değiştir</h2>
+
+    <form method="POST">
+        <fieldset>
+            <legend>Yeni Şifre</legend>
+            <div class="form-grid">
+                <div class="form-group form-full-width">
+                    <label for="new_password">Yeni Şifre (en az 5 karakter):</label>
+                    <input type="password" name="new_password" id="new_password" required minlength="5">
+                </div>
+            </div>
+        </fieldset>
+        <button type="submit" class="button-blue">Şifreyi Güncelle</button>
+    </form>
+    <p style="margin-top: 20px;"><a href="{{ url_for('manage_users') }}" class="button button-secondary">Geri Dön</a></p>
+{% endblock %}

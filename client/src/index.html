@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenka Internet Cafe</title>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+    <div id="user-session" class="login-panel">
+        </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>Zenka Internet Cafe</h1>
+            <p>Hazırsan, oyun başlasın.</p>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="search-input" class="search-input" placeholder="Oyun ara...">
+            <span class="search-icon">🔍</span>
+        </div>
+
+        <div id="category-list" class="categories">
+            </div>
+
+        <div id="game-list" class="games-grid">
+            </div>
+
+        <div id="stats-bar" class="stats-bar">
+            </div>
+    </div>
+
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h1 id="modal-title">Giriş Yap</h1>
+            <form id="login-form" data-mode="login">
+                <input type="text" id="username" placeholder="Kullanıcı Adı" required>
+                <input type="password" id="password" placeholder="Şifre" required>
+                <button type="submit" id="modal-button">Giriş</button>
+            </form>
+            <p id="login-error" class="error-message"></p>
+            <div id="modal-switch">
+                <p id="to-register">Henüz hesabın yok mu? <a href="#">Kayıt Ol</a></p>
+                <p id="to-login" class="hidden">Zaten bir hesabın var mı? <a href="#">Giriş Yap</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-detail-modal" class="modal">
+        <div class="modal-content detail-modal-content">
+            <span class="close-button">&times;</span>
+            <h1 id="detail-title">Oyun Adı</h1>
+            <div class="detail-container">
+                <div class="media-column">
+                    <div id="detail-main-media"></div>
+                    <div id="detail-thumbnail-strip"></div>
+                </div>
+                <div class="info-column">
+                    <h2>Oyun Bilgileri</h2>
+                    <p id="detail-description"></p>
+                    <div id="detail-meta"></div>
+                    <div class="interactive-section">
+                        <div class="rating-container">
+                            <h2>Puanın</h2>
+                            <div class="stars-outer" id="user-rating-stars">
+                                <div class="stars-inner"></div>
+                            </div>
+                        </div>
+                        <div class="favorite-container">
+                            <h2>Favori</h2>
+                            <div id="favorite-button" class="favorite-button">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rating-summary" id="average-rating-summary"></div>
+                </div>
+            </div>
+            <div class="play-button-container">
+                <button id="detail-play-button" class="play-button">OYNA</button>
+            </div>
+            <div class="similar-games-section hidden">
+                <h2>Benzer Oyunlar</h2>
+                <div id="similar-games-grid" class="similar-games-grid">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/renderer.js"></script>
+</body>
+</html>

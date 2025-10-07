@@ -1,0 +1,25 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Genel Ayarlar{% endblock %}
+
+{% block content %}
+    <h2>Genel Ayarlar</h2>
+    <p>İstemci arayüzünde görünecek olan kafe adı ve slogan gibi genel bilgileri buradan güncelleyebilirsiniz.</p>
+
+    <form method="POST" style="margin-top: 20px;">
+        <fieldset>
+            <legend>Marka Bilgileri</legend>
+            <div class="form-grid">
+                <div class="form-group form-full-width">
+                    <label for="cafe_name">Kafe Adı:</label>
+                    <input type="text" id="cafe_name" name="cafe_name" value="{{ settings.cafe_name }}" required>
+                </div>
+                <div class="form-group form-full-width">
+                    <label for="slogan">Slogan:</label>
+                    <input type="text" id="slogan" name="slogan" value="{{ settings.slogan }}">
+                </div>
+            </div>
+        </fieldset>
+        <button type="submit" class="button-blue">Ayarları Kaydet</button>
+    </form>
+{% endblock %}

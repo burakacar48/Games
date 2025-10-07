@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Admin Paneli{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_styles.css') }}">
+    <style>
+        .sidebar h2 {
+            color: var(--text-secondary);
+            font-size: 16px;
+            padding: 15px 0;
+            margin: 20px 0 5px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .sidebar .submenu {
+            padding-left: 15px;
+        }
+        .sidebar .submenu a {
+            padding: 10px 15px;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>Oyun Menüsü</h1>
+        <nav>
+            <h2>Oyun Yönetimi</h2>
+            <div class="submenu">
+                <a href="{{ url_for('list_games') }}">Oyun Listesi</a>
+                <a href="{{ url_for('add_game') }}">Oyun Ekle</a>
+                <a href="{{ url_for('manage_categories') }}">Kategoriler</a>
+                <a href="{{ url_for('manage_ratings') }}">Puan Yönetimi</a>
+            </div>
+
+            <h2>Kullanıcılar</h2>
+            <div class="submenu">
+                <a href="{{ url_for('manage_users') }}">Üye Bilgileri</a>
+            </div>
+
+            <h2>Sistem</h2>
+            <div class="submenu">
+                <a href="{{ url_for('general_settings') }}">Genel Ayarlar</a>
+            </div>
+        </nav>
+    </div>
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
