@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
+from database import init_db
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bu-cok-gizli-bir-anahtar-kimse-bilmemeli'
@@ -16,25 +17,13 @@ app.config['SAVE_FOLDER'] = os.path.join(os.getcwd(), 'user_saves')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER_COVERS'] = os.path.join(BASE_DIR, 'static/images/covers')
 app.config['UPLOAD_FOLDER_GALLERY'] = os.path.join(BASE_DIR, 'static/images/gallery')
+app.config['UPLOAD_FOLDER_BG'] = os.path.join(BASE_DIR, 'static/images/backgrounds') 
 DATABASE = 'kafe.db'
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
-
-# YENİ: Ayarları veritabanından çeken yardımcı işlev
-def get_settings():
-    conn = get_db_connection()
-    try:
-        settings_cursor = conn.execute('SELECT key, value FROM settings').fetchall()
-        settings_dict = {row['key']: row['value'] for row in settings_cursor}
-    except sqlite3.OperationalError:
-        # Tablo henüz oluşturulmadıysa varsayılan değerleri döndür
-        settings_dict = {'cafe_name': 'Kafe Gaming Client', 'slogan': 'Hazırsan, oyun başlasın.'}
-    finally:
-        conn.close()
-    return settings_dict
 
 def token_required(f):
     @wraps(f)
@@ -51,6 +40,20 @@ def token_required(f):
             return jsonify({'mesaj': 'Token geçersiz veya süresi dolmuş!'}), 401
         return f(current_user_id, *args, **kwargs)
     return decorated
+
+# YENİ: Ayar (Settings) Yardımcı Fonksiyonları
+def get_all_settings():
+    conn = get_db_connection()
+    settings_cursor = conn.execute('SELECT key, value FROM settings').fetchall()
+    conn.close()
+    return {row['key']: row['value'] for row in settings_cursor}
+
+def set_setting(key, value):
+    conn = get_db_connection()
+    conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
+    conn.commit()
+    conn.close()
+# ------------------------------------------
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -93,11 +96,18 @@ def get_games():
     conn.close()
     return jsonify(games_list)
 
-# YENİ: İstemcinin ayarları çekmesi için API rotası
 @app.route('/api/settings', methods=['GET'])
-def api_settings():
-    settings = get_settings()
-    return jsonify(settings)
+def get_settings_for_client():
+    settings = get_all_settings()
+    return jsonify({
+        'cafe_name': settings.get('cafe_name'),
+        'slogan': settings.get('slogan'),
+        'background_type': settings.get('background_type'),
+        'background_file': settings.get('background_file'),
+        'background_opacity_factor': settings.get('background_opacity_factor'),
+        'primary_color_start': settings.get('primary_color_start'), # YENİ
+        'primary_color_end': settings.get('primary_color_end')     # YENİ
+    })
 
 @app.route('/api/user/ratings', methods=['GET'])
 @token_required
@@ -336,28 +346,85 @@ def reset_all_ratings():
     conn.close()
     return redirect(url_for('manage_ratings'))
 
-# GÜNCELLENDİ: Hem GET hem POST isteklerini işler ve 'settings' değişkenini iletir
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def general_settings():
     if request.method == 'POST':
-        conn = get_db_connection()
+        # Marka Bilgileri
         cafe_name = request.form['cafe_name']
         slogan = request.form['slogan']
+        set_setting('cafe_name', cafe_name)
+        set_setting('slogan', slogan)
+
+        # Arkaplan Tipi Ayarı
+        background_type = request.form['background_type']
+        set_setting('background_type', background_type)
+
+        # Renk Ayarları
+        set_setting('primary_color_start', request.form['primary_color_start']) # YENİ
+        set_setting('primary_color_end', request.form['primary_color_end'])     # YENİ
+
+        # Arkaplan Parlaklık/Saydımlık Ayarı
+        opacity_factor = request.form.get('background_opacity_factor', '1.0')
+        try:
+            factor = max(0.1, min(1.0, float(opacity_factor)))
+            set_setting('background_opacity_factor', f"{factor:.1f}")
+        except ValueError:
+            set_setting('background_opacity_factor', '1.0')
+        # ------------------------
         
-        # Ayarları veritabanına kaydet
-        conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('cafe_name', cafe_name))
-        conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('slogan', slogan))
-        conn.commit()
-        conn.close()
+        # Eğer yeni bir resim yüklendiyse, onu kaydet
+        if background_type == 'custom_bg' and 'custom_background_file' in request.files:
+            file = request.files['custom_background_file']
+            if file and file.filename != '':
+                # Eski dosyayı sil
+                current_settings = get_all_settings()
+                old_file = current_settings.get('background_file')
+                if old_file:
+                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
+                    except OSError: pass
+
+                # Yeni dosyayı kaydet
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_BG'], filename))
+                set_setting('background_file', filename)
+            elif 'current_background_file' in request.form:
+                # Yeni dosya yüklenmedi ama var olan dosya korunuyor
+                set_setting('background_file', request.form['current_background_file'])
+            else:
+                # Yeni dosya yüklenmedi ve eski dosya yok, varsayılana dön
+                set_setting('background_type', 'default')
+                set_setting('background_file', '')
+        
+        # Eğer varsayılana dönüldüyse veya resim kaldırıldıysa
+        if background_type == 'default':
+            current_settings = get_all_settings()
+            old_file = current_settings.get('background_file')
+            if old_file:
+                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
+                except OSError: pass
+            set_setting('background_file', '')
+
         return redirect(url_for('general_settings'))
+
+    settings = get_all_settings()
+    # Eğer settings dict'i eksikse, varsayılan değerleri ekle
+    settings.setdefault('cafe_name', 'Zenka Internet Cafe')
+    settings.setdefault('slogan', 'Hazırsan, oyun başlasın.')
+    settings.setdefault('background_type', 'default')
+    settings.setdefault('background_file', '')
+    settings.setdefault('background_opacity_factor', '1.0')
+    settings.setdefault('primary_color_start', '#667eea') # YENİ
+    settings.setdefault('primary_color_end', '#764ba2')     # YENİ
     
-    settings = get_settings() # Ayarları çek
     return render_template('general_settings.html', settings=settings)
 
 if __name__ == '__main__':
-    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER']:
+    init_db() 
+    
+    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG']:
         folder_path = app.config.get(folder_key)
         if folder_path and not os.path.exists(folder_path):
             os.makedirs(folder_path)
+            
     print("Sunucu http://127.0.0.1:5000 adresinde başlatılıyor...")
     app.run(debug=True, port=5000)

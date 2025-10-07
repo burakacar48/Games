@@ -6,7 +6,7 @@
     <h2>Genel Ayarlar</h2>
     <p>İstemci arayüzünde görünecek olan kafe adı ve slogan gibi genel bilgileri buradan güncelleyebilirsiniz.</p>
 
-    <form method="POST" style="margin-top: 20px;">
+    <form method="POST" enctype="multipart/form-data" style="margin-top: 20px;">
         <fieldset>
             <legend>Marka Bilgileri</legend>
             <div class="form-grid">
@@ -20,6 +20,214 @@
                 </div>
             </div>
         </fieldset>
+        
+        <fieldset>
+            <legend>İstemci Görsel Ayarları</legend>
+            
+            <div class="form-grid">
+                
+                <div class="form-group form-full-width">
+                    <label>Hazır Tema Seçenekleri (Seçim yapınca aşağıdaki renk kodlarını günceller):</label>
+                    <div id="preset-container" class="preset-container">
+                        </div>
+                </div>
+                <div class="form-group">
+                    <label for="primary_color_start">Ana Renk (Başlangıç Gradyanı):</label>
+                    <input type="color" name="primary_color_start" id="primary_color_start" value="{{ settings.primary_color_start }}" class="color-input">
+                </div>
+                <div class="form-group">
+                    <label for="primary_color_end">Ana Renk (Bitiş Gradyanı):</label>
+                    <input type="color" name="primary_color_end" id="primary_color_end" value="{{ settings.primary_color_end }}" class="color-input">
+                </div>
+
+                <div class="form-group form-full-width">
+                    <label for="background_type">Arkaplan Tipi:</label>
+                    <select name="background_type" id="background_type" onchange="toggleBackgroundUpload()">
+                        <option value="default" {% if settings.background_type == 'default' %}selected{% endif %}>Varsayılan Arkaplan</option>
+                        <option value="custom_bg" {% if settings.background_type == 'custom_bg' %}selected{% endif %}>BG Yükle (Özel Resim)</option>
+                    </select>
+                </div>
+                <div id="custom_bg_fields" class="form-group form-full-width">
+                    <label>Özel Arkaplan Resmi</label>
+                    
+                    {% if settings.background_file and settings.background_type == 'custom_bg' %}
+                        <img src="{{ url_for('static', filename='images/backgrounds/' + settings.background_file) }}" alt="Mevcut Arkaplan" class="image-preview" style="max-width: 300px;">
+                        <input type="hidden" name="current_background_file" value="{{ settings.background_file }}">
+                        <p class="file-prompt">Mevcut resim: {{ settings.background_file }} (Değiştirmek için yeni bir resim seçin.)</p>
+                    {% else %}
+                        <p class="file-prompt">Lütfen bir arkaplan resmi seçin:</p>
+                    {% endif %}
+                    
+                    <div class="custom-file-input-wrapper">
+                        <input type="file" name="custom_background_file" id="custom_background_file_input" class="file-input" accept="image/jpeg, image/png, image/webp">
+                        <label for="custom_background_file_input" class="button button-blue">Dosya Seç...</label>
+                        <span class="file-name" id="custom_background_file_name">Dosya seçilmedi</span>
+                    </div>
+                </div>
+                
+                <div class="form-group form-full-width">
+                    <label for="background_opacity_factor">
+                        Arkaplan Parlaklık/Saydımlık Faktörü: 
+                        <span id="opacity_display" style="font-weight: bold; color: var(--accent-blue);">
+                            {{ "%.1f"|format(settings.background_opacity_factor|float) }}
+                        </span>
+                    </label>
+                    <input type="range" 
+                           name="background_opacity_factor" 
+                           id="background_opacity_factor" 
+                           min="0.1" 
+                           max="1.0" 
+                           step="0.1" 
+                           value="{{ settings.background_opacity_factor }}"
+                           oninput="document.getElementById('opacity_display').textContent = parseFloat(this.value).toFixed(1)"
+                           style="width: 100%; height: 30px;">
+                    <p class="file-prompt" style="margin-top: 5px;">0.1 (Koyu/Yüksek Saydamlık) &mdash; 1.0 (Parlak/Normal Saydamlık)</p>
+                </div>
+                
+            </div>
+        </fieldset>
+        
         <button type="submit" class="button-blue">Ayarları Kaydet</button>
     </form>
+    
+    <script>
+        // Tema paketleri - GÜNCELLENDİ
+        const PRESET_THEMES = [
+            { start: '#4A90E2', end: '#2E5C8A' },
+            { start: '#56C596', end: '#2D8B5F' },
+            { start: '#FF8C42', end: '#E65525' },
+            { start: '#FF6B6B', end: '#C92A2A' },
+            { start: '#FF6B9D', end: '#C44569' },
+            { start: '#8B7FD8', end: '#6B5EBE' },
+            { start: '#FFD93D', end: '#F4A261' },
+            { start: '#4ECDC4', end: '#2A9D8F' },
+            { start: '#5B7C99', end: '#364F6B' },
+            { start: '#00F5A0', end: '#00D9F5' },
+            { start: '#B565D8', end: '#8E44AD' },
+            { start: '#667EEA', end: '#4C51BF' },
+            { start: '#3B82F6', end: '#1E40AF' },
+            { start: '#60A5FA', end: '#3B82F6' },
+            { start: '#1E3A8A', end: '#0F172A' },
+            { start: '#00D4FF', end: '#0099CC' },
+            { start: '#06B6D4', end: '#0891B2' },
+            { start: '#34D399', end: '#10B981' },
+            { start: '#10B981', end: '#047857' },
+            { start: '#84CC16', end: '#65A30D' },
+            { start: '#A3B18A', end: '#6B7B5C' },
+            { start: '#FDE047', end: '#FACC15' },
+            { start: '#F59E0B', end: '#D97706' },
+            { start: '#FB923C', end: '#EA580C' },
+            { start: '#FF7F50', end: '#FF6347' },
+            { start: '#EF4444', end: '#B91C1C' },
+            { start: '#BE123C', end: '#881337' },
+            { start: '#EC4899', end: '#BE185D' },
+            { start: '#FDA4AF', end: '#FB7185' },
+            { start: '#DDA0DD', end: '#BA55D3' },
+            { start: '#C084FC', end: '#9333EA' },
+            { start: '#A78BFA', end: '#7C3AED' },
+            { start: '#C4B5FD', end: '#A78BFA' },
+            { start: '#94A3B8', end: '#64748B' },
+            { start: '#475569', end: '#1E293B' },
+            { start: '#CBD5E1', end: '#94A3B8' },
+            { start: '#CD7F32', end: '#A0522D' },
+            { start: '#D4A574', end: '#B8860B' },
+            { start: '#92400E', end: '#451A03' },
+            { start: '#D4C5B9', end: '#A89B8C' },
+            { start: '#FF10F0', end: '#C2185B' },
+            { start: '#FFFF00', end: '#FFD700' },
+            { start: '#FF6600', end: '#FF3300' },
+            { start: '#A7C7E7', end: '#89B5D6' },
+            { start: '#B4E7CE', end: '#95D5B2' },
+            { start: '#FFB3C1', end: '#FF8FA3' },
+            { start: '#D4ADFC', end: '#C084FC' },
+            { start: '#7F1D1D', end: '#450A0A' },
+            { start: '#14532D', end: '#052E16' },
+            { start: '#581C87', end: '#3B0764' },
+            { start: '#FF6B35', end: '#F7931E' },
+            { start: '#1A5F7A', end: '#0F3D54' },
+            { start: '#667EEA', end: '#9333EA' },
+            { start: '#10B981', end: '#06B6D4' },
+            { start: '#FBBF24', end: '#F97316' },
+            { start: '#EC4899', end: '#A855F7' },
+            { start: '#00FF41', end: '#00B82E' },
+            { start: '#FF0844', end: '#CC0036' },
+            { start: '#00D9FF', end: '#0099FF' },
+            { start: '#FF006E', end: '#8338EC' }
+        ];
+
+        function selectPreset(startColor, endColor) {
+            document.getElementById('primary_color_start').value = startColor;
+            document.getElementById('primary_color_end').value = endColor;
+        }
+
+        function renderPresets() {
+            const container = document.getElementById('preset-container');
+            container.innerHTML = '';
+
+            PRESET_THEMES.forEach(theme => {
+                const box = document.createElement('div');
+                box.className = 'preset-box';
+                box.style.backgroundImage = `linear-gradient(135deg, ${theme.start} 0%, ${theme.end} 100%)`;
+                box.setAttribute('title', `${theme.start} -> ${theme.end}`);
+                box.onclick = () => selectPreset(theme.start, theme.end);
+                container.appendChild(box);
+            });
+        }
+
+        function toggleBackgroundUpload() {
+            const type = document.getElementById('background_type').value;
+            const fields = document.getElementById('custom_bg_fields');
+            fields.style.display = (type === 'custom_bg') ? 'block' : 'none'; 
+        }
+        
+        function handleFileLabelUpdate(inputId, nameId) {
+            document.getElementById(inputId).addEventListener('change', (event) => {
+                const fileNameSpan = document.getElementById(nameId);
+                if (event.target.files && event.target.files.length > 0) {
+                    fileNameSpan.textContent = event.target.files[0].name;
+                } else {
+                    const currentFileName = document.querySelector('input[name="current_background_file"]')?.value;
+                    if (currentFileName) {
+                         fileNameSpan.textContent = `Mevcut: ${currentFileName}`;
+                    } else {
+                         fileNameSpan.textContent = 'Dosya seçilmedi';
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderPresets();
+            toggleBackgroundUpload();
+            handleFileLabelUpdate('custom_background_file_input', 'custom_background_file_name');
+        });
+    </script>
+
+    <style>
+        /* Renk seçicinin boyutunu düzenlemek için ek stil */
+        .color-input {
+            height: 40px !important;
+            padding: 5px !important;
+        }
+        /* YENİ EKLENDİ: Tema Seçici stilleri */
+        .preset-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .preset-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 2px solid var(--border-color); /* admin_styles.css'ten */
+            transition: transform 0.1s ease-in-out, border-color 0.1s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .preset-box:hover {
+            transform: scale(1.1);
+            border-color: #fff;
+        }
+    </style>
 {% endblock %}

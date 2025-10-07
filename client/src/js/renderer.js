@@ -7,17 +7,15 @@ window.addEventListener('DOMContentLoaded', () => {
     let userRatings = {};
     let userFavorites = new Set();
 
+    let appSettings = {};
+    const body = document.body;
+    
     // --- HTML Elementlerini Seç ---
     const gameListContainer = document.getElementById('game-list');
     const userSessionContainer = document.getElementById('user-session');
     const searchInput = document.getElementById('search-input');
     const statsBar = document.getElementById('stats-bar');
     const categoryListContainer = document.getElementById('category-list');
-    
-    // YENİ: Başlık ve slogan elementleri
-    const appTitle = document.getElementById('app-title');
-    const headerTitle = document.getElementById('header-title');
-    const headerSlogan = document.getElementById('header-slogan');
     
     // Modal Elementleri
     const loginModal = document.getElementById('login-modal');
@@ -90,6 +88,12 @@ window.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.category-chip.active')?.classList.remove('active');
         clickedChip.classList.add('active');
         filterGames();
+        
+        // Kategori seçildiğinde başa kaydırma işlevi (Smooth Scroll)
+        window.scrollTo({
+            top: document.querySelector('.search-bar').offsetTop - 20,
+            behavior: 'smooth'
+        });
     };
 
     const renderCategories = () => {
@@ -159,15 +163,57 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // YENİ: Kafe adını ve sloganı çeker ve DOM'u günceller
+    // --- GÜNCELLENDİ: Ayarları çekme fonksiyonu ---
     const fetchSettings = () => {
-        fetch(`${SERVER_URL}/api/settings`).then(res => res.json()).then(settings => {
-            // Varsayılan değerler sağlanmazsa, tarayıcı başlığı varsayılan kalır.
-            appTitle.textContent = settings.cafe_name || 'Kafe Gaming Client'; 
-            headerTitle.textContent = settings.cafe_name || 'Zenka Internet Cafe';
-            headerSlogan.textContent = settings.slogan || 'Hazırsan, oyun başlasın.';
-        }).catch(err => console.error("Ayarlar yüklenemedi:", err));
-    };
+        fetch(`${SERVER_URL}/api/settings`).then(res => {
+            if (!res.ok) {
+                throw new Error(`API hatası: ${res.status}`);
+            }
+            return res.json();
+        }).then(settings => {
+            appSettings = settings;
+            
+            // YENİ EKLENDİ: Sayfa başlığını (tarayıcı sekmesi) güncelle
+            document.title = settings.cafe_name || "Zenka Internet Cafe"; 
+            
+            // Marka Bilgilerini Güncelle (h1 etiketi)
+            const headerH1 = document.querySelector('.header h1');
+            const headerP = document.querySelector('.header p');
+            if(headerH1) headerH1.textContent = settings.cafe_name || "Zenka Internet Cafe";
+            if(headerP) headerP.textContent = settings.slogan || "Hazırsan, oyun başlasın.";
+            
+            // Renk Ayarlarını Uygula
+            const startColor = settings.primary_color_start || '#667eea';
+            const endColor = settings.primary_color_end || '#764ba2';
+            
+            // CSS Değişkenlerini Güncelle
+            body.style.setProperty('--theme-primary-start', startColor);
+            body.style.setProperty('--theme-primary-end', endColor);
+            
+            // Arkaplanı Güncelle
+            const opacityFactor = parseFloat(settings.background_opacity_factor) || 1.0;
+
+            if (settings.background_type === 'custom_bg' && settings.background_file) {
+                const imageUrl = `${SERVER_URL}/static/images/backgrounds/${settings.background_file}`;
+                body.classList.add('custom-background');
+                body.style.setProperty('--custom-bg-image', `url(${imageUrl})`);
+            } else {
+                body.classList.remove('custom-background');
+                body.style.removeProperty('--custom-bg-image'); 
+            }
+            
+            // Parlaklık Faktörünü Uygula
+            body.style.setProperty('--custom-bg-factor', opacityFactor); 
+
+        }).catch(err => {
+            console.error("Ayarlar çekilemedi:", err);
+            const headerH1 = document.querySelector('.header h1');
+            const headerP = document.querySelector('.header p');
+            if(headerH1) headerH1.textContent = "Zenka Internet Cafe";
+            if(headerP) headerP.textContent = "Hazırsan, oyun başlasın.";
+        });
+    }
+    // ----------------------------------------------
     
     const updateRatingDisplay = (game) => {
         const avgRating = game.average_rating ? game.average_rating.toFixed(1) : 'N/A';
@@ -338,7 +384,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('modal')) { closeLoginModal(); closeGameDetail(); }
     });
 
+    fetchSettings();
     fetchGames();
-    fetchSettings(); // YENİ: Sayfa yüklenirken ayarları çek
     updateUserUI();
 });

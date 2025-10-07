@@ -18,6 +18,15 @@ def init_db():
         )
         ''')
 
+        # --- YENİ EKLENDİ: settings tablosu ---
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+        ''')
+        # -------------------------------------
+
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,14 +83,6 @@ def init_db():
         )
         ''')
         
-        # YENİ: Ayarları tutmak için settings tablosu eklendi
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-        ''')
-        
         # Örnek veri ekleme blokları, sadece ilgili tablo boşsa çalışır.
         # Bu sayede mevcut kullanıcıların ve oyunların üzerine veri yazılmaz.
         cursor.execute("SELECT COUNT(*) FROM users")
@@ -96,29 +97,35 @@ def init_db():
             sample_categories = [('FPS',), ('RPG',), ('MOBA',), ('Strateji',)]
             cursor.executemany('INSERT INTO categories (name) VALUES (?)', sample_categories)
 
+        # --- GÜNCELLENDİ: settings varsayılan verileri ---
+        cursor.execute("SELECT COUNT(*) FROM settings")
+        if cursor.fetchone()[0] == 0:
+            print("Tablo boştu, varsayılan ayarlar ekleniyor...")
+            sample_settings = [
+                ('cafe_name', 'Zenka Internet Cafe'),
+                ('slogan', 'Hazırsan, oyun başlasın.'),
+                ('background_type', 'default'),
+                ('background_file', ''),
+                ('background_opacity_factor', '1.0'), 
+                ('primary_color_start', '#667eea'), 
+                ('primary_color_end', '#764ba2')
+            ]
+            cursor.executemany('INSERT INTO settings (key, value) VALUES (?, ?)', sample_settings)
+        # ---------------------------------------------------
+            
         cursor.execute("SELECT COUNT(*) FROM games")
         if cursor.fetchone()[0] == 0:
             print("Tablo boştu, örnek oyun verileri ekleniyor...")
             sample_games = [
-                ('Valorant', '5v5 karakter tabanlı taktiksel nişancı oyunu.', 'valorant.jpg', 'e_E9W2vsRbI', '%LOCALAPPDATA%\\ShooterGame\\Saved\\', 'exe', '{"yol": "C:\\Riot Games\\Riot Client\\RiotClientServices.exe", "argumanlar": "--launch-product=valorant --launch-patchline=live"}', '2020', 'PEGI 16', 1),
-                ('Counter-Strike 2', 'CS tarihinde yeni bir dönem başlıyor. Karşınızda Counter-Strike 2.', 'cs2.png', 'vjS2y_x-WUc', '%USERPROFILE%\\Documents\\KafeTestSaves\\CS2', 'steam', '{"app_id": "730"}', '2023', 'PEGI 18', 1)
+                ('Valorant', '5v5 karakter tabanlı taktiksel nişancı oyunu.', 'valorant.png', 'e_E9W2vsRbI', '%LOCALAPPDATA%\\ShooterGame\\Saved\\', 'exe', '{"yol": "C:\\Riot Games\\Riot Client\\RiotClientServices.exe", "argumanlar": "--launch-product=valorant --launch-patchline=live"}', '2020', 'PEGI 16', 1),
+                ('Counter-Strike 2', 'CS tarihinde yeni bir dönem başlıyor. Karşınızda Counter-Strike 2.', 'CS2.jpg', 'vjS2y_x-WUc', '%USERPROFILE%\\Documents\\KafeTestSaves\\CS2', 'steam', '{"app_id": "730"}', '2023', 'PEGI 18', 1)
             ]
             cursor.executemany('INSERT INTO games (oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', sample_games)
             
             print("Örnek galeri görselleri ekleniyor...")
-            cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (1, 'valorant_ss1.jpg'))
-            cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (2, 'cs2_ss1.jpg'))
-        
-        # YENİ: Varsayılan kafe adı ve slogan ayarları eklendi
-        cursor.execute("SELECT COUNT(*) FROM settings")
-        if cursor.fetchone()[0] == 0:
-            print("Tablo boştu, örnek ayarlar ekleniyor...")
-            sample_settings = [
-                ('cafe_name', 'Zenka Internet Cafe'),
-                ('slogan', 'Hazırsan, oyun başlasın.'),
-            ]
-            cursor.executemany('INSERT INTO settings (key, value) VALUES (?, ?)', sample_settings)
-            
+            cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (1, 'Featured-Image-GE-1.webp'))
+            cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (2, 'Counter-Strike-2-4.jpg'))
+
         conn.commit()
         conn.close()
         print("Veritabanı kontrolü tamamlandı. Mevcut veriler korundu.")
