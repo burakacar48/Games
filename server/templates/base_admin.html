@@ -16,6 +16,13 @@
             </div>
 
             <div class="menu-section">
+                <a href="{{ url_for('admin_index') }}" class="menu-item {% if request.endpoint == 'admin_index' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Gösterge Paneli</span>
+                </a>
+            </div>
+
+            <div class="menu-section">
                 <div class="menu-title">Oyun Yönetimi</div>
                 {% set game_list_endpoints = ['list_games', 'edit_game', 'delete_game'] %}
                 <a href="{{ url_for('list_games') }}" class="menu-item {% if request.endpoint in game_list_endpoints %}active{% endif %}">

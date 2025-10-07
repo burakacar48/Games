@@ -160,9 +160,40 @@ def toggle_favorite(current_user_id, game_id):
     conn.close()
     return jsonify({'mesaj': message, 'is_favorite': new_status})
 
+# GÜNCELLENDİ: Dashboard verilerini tek bir fonksiyonda çek
 @app.route('/admin')
+def admin_index():
+    conn = get_db_connection()
+    
+    # 1. İstatistikleri Çek
+    game_count = conn.execute('SELECT COUNT(*) FROM games').fetchone()[0]
+    category_count = conn.execute('SELECT COUNT(*) FROM categories').fetchone()[0]
+    user_count = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    stats = {
+        'game_count': game_count,
+        'category_count': category_count,
+        'user_count': user_count
+    }
+
+    # 2. Son Eklenen Oyunları Çek
+    query = """
+    SELECT g.id, g.oyun_adi, c.name as category_name
+    FROM games g
+    LEFT JOIN categories c ON g.category_id = c.id
+    ORDER BY g.id DESC
+    LIMIT 5
+    """
+    recent_games = conn.execute(query).fetchall()
+    conn.close()
+    
+    recent_games_list = [dict(game) for game in recent_games]
+    
+    return render_template('index.html', stats=stats, recent_games=recent_games_list)
+
+# GÜNCELLENDİ: /admin rotası artık Gösterge Paneline yönlendiriyor.
+@app.route('/admin_redirect')
 def admin_redirect():
-    return redirect(url_for('list_games'))
+    return redirect(url_for('admin_index'))
 
 @app.route('/admin/games')
 def list_games():

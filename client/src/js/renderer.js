@@ -35,9 +35,12 @@ window.addEventListener('DOMContentLoaded', () => {
     const thumbnailStrip = document.getElementById('detail-thumbnail-strip');
     const detailPlayButton = document.getElementById('detail-play-button');
     const userRatingStars = document.getElementById('user-rating-stars');
-    const userRatingInner = userRatingStars ? userRatingStars.querySelector('.stars-inner') : null; // Null check eklendi
+    const userRatingInner = userRatingStars ? userRatingStars.querySelector('.stars-inner') : null; 
     const averageRatingSummary = document.getElementById('average-rating-summary');
     const favoriteButton = document.getElementById('favorite-button');
+    // Benzer Oyunlar Elementleri
+    const similarGamesSection = document.querySelector('.similar-games-section');
+    const similarGamesGrid = document.getElementById('similar-games-grid');
 
     // --- Fonksiyonlar ---
     const updateUserUI = () => {
@@ -46,14 +49,11 @@ window.addEventListener('DOMContentLoaded', () => {
                 <span class="user-info">👤 ${currentUser}</span>
                 <button id="logout-button" class="btn-logout">Çıkış Yap</button>
             `;
-            // Listener'ı eklemeden önce düğmenin varlığını kontrol etmeye gerek yok, 
-            // çünkü innerHTML ile hemen oluşturuluyor.
             document.getElementById('logout-button').addEventListener('click', handleLogout);
         } else {
             userSessionContainer.innerHTML = `
                 <button id="show-login-button" class="btn-login">Giriş Yap / Kayıt Ol</button>
             `;
-            // Listener'ı eklemeden önce düğmenin varlığını kontrol etmeye gerek yok.
             document.getElementById('show-login-button').addEventListener('click', openLoginModal);
         }
     };
@@ -85,6 +85,38 @@ window.addEventListener('DOMContentLoaded', () => {
                 <div class="stat-label">Toplam Oyun Sayısı</div>
             </div>
         `;
+    };
+    
+    // Benzer Oyunları Render Etme Fonksiyonu
+    const renderSimilarGames = (similarGames) => {
+        if (!similarGamesGrid) return;
+        similarGamesGrid.innerHTML = '';
+        
+        if (similarGames && similarGames.length > 0) {
+            similarGames.forEach(game => {
+                const imageUrl = `${SERVER_URL}/static/images/covers/${game.cover_image}`;
+                const card = document.createElement('div');
+                card.className = 'similar-game-card';
+                card.dataset.gameId = game.id;
+                card.innerHTML = `
+                    <img src="${imageUrl}" alt="${game.oyun_adi}">
+                    <h4>${game.oyun_adi}</h4>
+                `;
+                // Tıklama olayını ekle: Detay modalını açar
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    closeGameDetail();
+                    const gameDetails = allGames.find(g => g.id == game.id);
+                    if(gameDetails) showGameDetail(gameDetails);
+                });
+                similarGamesGrid.appendChild(card);
+            });
+            // Benzer oyunlar varsa bölümü görünür yap
+            if (similarGamesSection) similarGamesSection.classList.remove('hidden');
+        } else {
+            // Benzer oyun yoksa bölümü gizle
+            if (similarGamesSection) similarGamesSection.classList.add('hidden');
+        }
     };
 
     const handleCategoryClick = (clickedChip) => {
@@ -166,7 +198,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // --- GÜNCELLENDİ: Ayarları çekme fonksiyonu ---
+    // --- Ayarları çekme fonksiyonu ---
     const fetchSettings = () => {
         fetch(`${SERVER_URL}/api/settings`).then(res => {
             if (!res.ok) {
@@ -176,7 +208,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }).then(settings => {
             appSettings = settings;
             
-            // YENİ EKLENDİ: Sayfa başlığını (tarayıcı sekmesi) güncelle
+            // Sayfa başlığını (tarayıcı sekmesi) güncelle
             document.title = settings.cafe_name || "Zenka Internet Cafe"; 
             
             // Marka Bilgilerini Güncelle (h1 etiketi)
@@ -243,7 +275,24 @@ window.addEventListener('DOMContentLoaded', () => {
     const showGameDetail = (game) => {
         detailTitle.textContent = game.oyun_adi;
         detailDescription.textContent = game.aciklama || "Açıklama yok.";
-        detailMeta.innerHTML = `<div class="meta-item"><span class="meta-label">Kategori:</span><span>${game.kategori||'N/A'}</span></div><div class="meta-item"><span class="meta-label">Çıkış Yılı:</span><span>${game.cikis_yili||'N/A'}</span></div><div class="meta-item"><span class="meta-label">PEGI:</span><span>${game.pegi||'N/A'}</span></div>`;
+        
+        // ********************************************
+        // FIX: Oyun Bilgileri için ikonlar eklendi
+        detailMeta.innerHTML = `
+            <div class="meta-item">
+                <span class="meta-label"><i class="fas fa-tags"></i> Kategori:</span>
+                <span>${game.kategori||'N/A'}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label"><i class="fas fa-calendar-alt"></i> Çıkış Yılı:</span>
+                <span>${game.cikis_yili||'N/A'}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label"><i class="fas fa-shield-alt"></i> PEGI:</span>
+                <span>${game.pegi||'N/A'}</span>
+            </div>`;
+        // ********************************************
+
         updateRatingDisplay(game);
         updateFavoriteDisplay(game.id);
         thumbnailStrip.innerHTML = ''; mainMedia.innerHTML = '';
@@ -276,9 +325,21 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         if (detailPlayButton) detailPlayButton.dataset.gameId = game.id;
         if (gameDetailModal) gameDetailModal.style.display = 'block';
+        
+        // Benzer Oyunları Bul ve Render Et
+        const similarGames = allGames.filter(g => 
+            g.kategori === game.kategori && g.id !== game.id
+        ).slice(0, 4); 
+        renderSimilarGames(similarGames); 
     };
 
-    const closeGameDetail = () => { if (gameDetailModal) gameDetailModal.style.display = 'none'; mainMedia.innerHTML = ''; };
+    const closeGameDetail = () => { 
+        if (gameDetailModal) gameDetailModal.style.display = 'none'; 
+        mainMedia.innerHTML = ''; 
+        // Modalı kapatırken Benzer Oyunlar bölümünü gizle
+        if (similarGamesSection) similarGamesSection.classList.add('hidden'); 
+    };
+    
     const syncAndLaunch = async (game) => { window.electronAPI.launchGame(game); };
     const setModalMode = (mode) => {
         if (loginForm && loginError && modalTitle && modalButton && modalSwitchToRegister && modalSwitchToLogin) {
@@ -427,5 +488,5 @@ window.addEventListener('DOMContentLoaded', () => {
 
     fetchSettings();
     fetchGames();
-    updateUserUI(); // Bu, Giriş/Kayıt Ol düğmesini oluşturur ve olay dinleyicisini ekler.
+    updateUserUI(); 
 });

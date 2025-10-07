@@ -92,17 +92,33 @@
                         <option value="script" {% if game.calistirma_tipi == 'script' %}selected{% endif %}>Script</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group calistirma-fields">
+                    {% set current_exe_path = game.calistirma_verisi_dict.get('yol', '') %}
+                    {% set current_exe_name = current_exe_path.split('\\')[-1].split('/')[-1] if current_exe_path else '' %}
+                    {% set is_placeholder = 'file-path-placeholder' if not current_exe_name else '' %}
+                    
                     <div id="exe_fields" class="hidden">
-                        <label for="exe_yol_input">EXE Yolu:</label><input type="text" name="exe_yol" id="exe_yol_input" value="{{ game.calistirma_verisi_dict.get('yol', '') }}">
-                        <label for="exe_argumanlar_input">Argümanlar:</label><input type="text" name="exe_argumanlar" id="exe_argumanlar_input" value="{{ game.calistirma_verisi_dict.get('argumanlar', '') }}">
+                        <div class="calistirma-field-group">
+                            <label for="exe_yol_input_file">EXE Yolu:</label>
+                            <input type="hidden" name="exe_yol" id="exe_yol_input" value="{{ current_exe_path }}">
+                            <div class="custom-file-path-wrapper">
+                                <input type="file" name="exe_yol_file" id="exe_yol_input_file" class="file-input" accept=".exe">
+                                <label for="exe_yol_input_file" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosya Seç</label>
+                                <div class="file-path-display" id="exe_yol_display"><span class="{{ is_placeholder }}">{{ current_exe_name or 'Dosya seçilmedi' }}</span></div>
+                            </div>
+                        </div>
+                        <div class="calistirma-field-group">
+                            <label for="exe_argumanlar_input">Argümanlar (isteğe bağlı):</label>
+                            <input type="text" name="exe_argumanlar" id="exe_argumanlar_input" value="{{ game.calistirma_verisi_dict.get('argumanlar', '') }}" placeholder="-fullscreen -novid">
+                        </div>
                     </div>
-                    <div id="steam_fields" class="hidden">
-                        <label for="steam_app_id_input">Steam App ID:</label><input type="text" name="steam_app_id" id="steam_app_id_input" value="{{ game.calistirma_verisi_dict.get('app_id', '') }}">
+                    <div id="steam_fields" class="hidden calistirma-field-group">
+                        <label for="steam_app_id_input">Steam App ID:</label>
+                        <input type="text" name="steam_app_id" id="steam_app_id_input" value="{{ game.calistirma_verisi_dict.get('app_id', '') }}" placeholder="Örn: 730">
                     </div>
-                    <div id="script_fields" class="hidden">
+                    <div id="script_fields" class="hidden calistirma-field-group">
                         <label for="script_komutlar_textarea">Script Komutları (her komut yeni satıra):</label>
-                        <textarea name="script_komutlar" id="script_komutlar_textarea" rows="4">{{ game.calistirma_verisi_dict.get('komutlar', []) | join('\r\n') }}</textarea>
+                        <textarea name="script_komutlar" id="script_komutlar_textarea" rows="4" placeholder="notepad.exe&#10;calc.exe">{{ game.calistirma_verisi_dict.get('komutlar', []) | join('\r\n') }}</textarea>
                     </div>
                 </div>
             </div>
@@ -120,29 +136,92 @@
             document.getElementById('exe_fields').style.display = 'none';
             document.getElementById('steam_fields').style.display = 'none';
             document.getElementById('script_fields').style.display = 'none';
-            if (tip === 'exe') document.getElementById('exe_fields').style.display = 'block';
-            else if (tip === 'steam') document.getElementById('steam_fields').style.display = 'block';
-            else if (tip === 'script') document.getElementById('script_fields').style.display = 'block';
-        }
-        document.addEventListener('DOMContentLoaded', updateCalistirmaInputs);
-
-        document.getElementById('cover_image_input_custom').addEventListener('change', (event) => {
-            const fileNameSpan = document.getElementById('cover_image_name');
-            if (event.target.files && event.target.files.length > 0) {
-                fileNameSpan.textContent = event.target.files[0].name;
+            
+            // Tüm alan gruplarını gizle/göster
+            if (tip === 'exe') {
+                document.getElementById('exe_fields').style.display = 'flex';
+                document.getElementById('exe_fields').classList.add('calistirma-field-group');
             } else {
-                fileNameSpan.textContent = 'Dosya seçilmedi';
+                 document.getElementById('exe_fields').classList.remove('calistirma-field-group');
             }
-        });
+            if (tip === 'steam') {
+                document.getElementById('steam_fields').style.display = 'flex';
+            }
+            if (tip === 'script') {
+                document.getElementById('script_fields').style.display = 'flex';
+            }
+            
+            // Çalıştırma tipi seçildiğinde, form-grid içindeki 3. form-group'a full-width class'ı eklenir
+            const calistirmaGroup = document.querySelector('.form-grid > .form-group:nth-child(3)');
+            if (calistirmaGroup) {
+                if (tip === 'exe' || tip === 'steam' || tip === 'script') {
+                    calistirmaGroup.classList.add('full-width');
+                } else {
+                    calistirmaGroup.classList.remove('full-width');
+                }
+            }
+        }
+        
+        function handleFileLabelUpdate(inputId, nameId, isExePath = false) {
+            document.getElementById(inputId).addEventListener('change', (event) => {
+                const display = document.getElementById(nameId);
+                const currentExePath = document.getElementById('exe_yol_input')?.value || '';
 
-        document.getElementById('gallery_images_input_custom').addEventListener('change', (event) => {
-            const fileNameSpan = document.getElementById('gallery_images_name');
-            if (event.target.files && event.target.files.length > 1) {
-                fileNameSpan.textContent = `${event.target.files.length} dosya seçildi.`;
-            } else if (event.target.files && event.target.files.length == 1) {
-                fileNameSpan.textContent = event.target.files[0].name;
-            } else {
-                fileNameSpan.textContent = 'Dosya seçilmedi';
+                if (event.target.files && event.target.files.length > 0) {
+                    display.textContent = event.target.files[0].name;
+                    display.classList.remove('file-path-placeholder');
+                    
+                    // EXE yolu için gizli inputu güncelle
+                    if(isExePath) {
+                        // Dosya adını hidden input'a kaydet
+                        document.getElementById('exe_yol_input').value = event.target.files[0].name;
+                    }
+
+                } else {
+                    // Mevcut EXE yolu varsa, placeholder'ı ona göre ayarla
+                    if (isExePath && currentExePath) {
+                        // Var olan yolu göster (sadece dosya adı)
+                        display.textContent = currentExePath.split('\\').pop().split('/').pop();
+                        display.classList.remove('file-path-placeholder');
+                    } else {
+                        display.innerHTML = `<span class="file-path-placeholder">Dosya seçilmedi</span>`;
+                        
+                        // Eğer EXE yoluysa ve dosya seçilmemişse hidden inputu temizle
+                        if(isExePath) {
+                            document.getElementById('exe_yol_input').value = '';
+                        }
+                    }
+                }
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // updateCalistirmaInputs'i manuel olarak çağır
+            updateCalistirmaInputs();
+            handleFileLabelUpdate('cover_image_input_custom', 'cover_image_name');
+            handleFileLabelUpdate('gallery_images_input_custom', 'gallery_images_name');
+            // EXE yolu işlevini etkinleştir
+            handleFileLabelUpdate('exe_yol_input_file', 'exe_yol_display', true);
+
+            // Sayfa yüklendiğinde mevcut seçili çalıştırma tipinin alanlarını göster
+            const tip = document.getElementById('calistirma_tipi').value;
+            if (tip === 'exe') {
+                document.getElementById('exe_fields').style.display = 'flex';
+                document.getElementById('exe_fields').classList.add('calistirma-field-group');
+                const calistirmaGroup = document.querySelector('.form-grid > .form-group:nth-child(3)');
+                if (calistirmaGroup) calistirmaGroup.classList.add('full-width');
+
+                // EXE yolu için özel gösterim: mevcut yolu görüntüle
+                const currentExePath = document.getElementById('exe_yol_input').value;
+                const exeDisplay = document.getElementById('exe_yol_display');
+                const currentExeName = currentExePath.split('\\').pop().split('/').pop();
+
+                if (currentExeName) {
+                    exeDisplay.textContent = currentExeName;
+                    exeDisplay.classList.remove('file-path-placeholder');
+                } else {
+                    exeDisplay.innerHTML = `<span class="file-path-placeholder">Dosya seçilmedi</span>`;
+                }
             }
         });
     </script>

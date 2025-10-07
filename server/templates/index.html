@@ -1,0 +1,73 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Gösterge Paneli{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Gösterge Paneli</h1>
+    </div>
+
+    <div class="stats-grid">
+        
+        <div class="stat-card stat-games">
+            <div class="stat-icon"><i class="fas fa-gamepad"></i></div>
+            <div class="stat-info">
+                <div class="stat-value">{{ stats.game_count }}</div>
+                <div class="stat-label">Toplam Oyun Sayısı</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-categories">
+            <div class="stat-icon"><i class="fas fa-folder"></i></div>
+            <div class="stat-info">
+                <div class="stat-value">{{ stats.category_count }}</div>
+                <div class="stat-label">Kategori Sayısı</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-users">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <div class="stat-value">{{ stats.user_count }}</div>
+                <div class="stat-label">Kayıtlı Kullanıcı</div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <div class="form-container">
+        <div class="section-title">Son Eklenen 5 Oyun</div>
+        {% if recent_games %}
+            <table class="recent-games-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">ID</th>
+                        <th>Oyun Adı</th>
+                        <th style="width: 150px;">Kategori</th>
+                        <th style="width: 100px; text-align: center;">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for game in recent_games %}
+                    <tr>
+                        <td>{{ game.id }}</td>
+                        <td class="game-name">{{ game.oyun_adi }}</td>
+                        <td>
+                            <span class="badge badge-{{ 'uncategorized' if not game.category_name else 'default' }}">
+                                {{ game.category_name or 'Kategorisiz' }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <a href="{{ url_for('edit_game', game_id=game.id) }}" class="btn-icon btn-edit" title="Düzenle">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #94a3b8; text-align: center;">Henüz sisteme eklenmiş bir oyun bulunmamaktadır. Hemen bir oyun ekleyin!</p>
+        {% endif %}
+    </div>
+{% endblock %}
