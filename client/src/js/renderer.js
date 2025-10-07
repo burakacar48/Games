@@ -14,7 +14,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     const sectionTitle = document.getElementById('sectionTitle');
     const userActions = document.getElementById('user-actions');
-    const usernameDisplay = document.getElementById('username-display');
     const categoryListSidebar = document.getElementById('category-list-sidebar');
     const heroSection = document.querySelector('.hero-section');
 
@@ -42,6 +41,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const favoriteButton = document.getElementById('favorite-button');
     const similarGamesSection = document.querySelector('.similar-games-section');
     const similarGamesGrid = document.getElementById('similar-games-grid');
+
+    // === AYARLARI ÇEK VE UYGULA ===
+    const fetchAndApplySettings = () => {
+        fetch(`${SERVER_URL}/api/settings`)
+            .then(res => res.json())
+            .then(settings => {
+                const root = document.documentElement;
+                if (settings.primary_color_start && settings.primary_color_end) {
+                    root.style.setProperty('--primary-start', settings.primary_color_start);
+                    root.style.setProperty('--primary-end', settings.primary_color_end);
+                }
+            })
+            .catch(error => console.error('Ayarlar çekilirken hata oluştu:', error));
+    };
 
 
     // Oyunları ana grid'de render eden fonksiyon
@@ -278,18 +291,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const renderCategories = () => {
         categoryListSidebar.innerHTML = '';
-        allCategories.forEach(categoryName => {
+        allCategories.forEach(category => {
             const navItem = document.createElement('div');
             navItem.className = 'nav-item';
-            navItem.dataset.category = categoryName;
-            let icon = '🎮';
-            if (categoryName.toLowerCase().includes('aksiyon') || categoryName.toLowerCase().includes('fps')) icon = '⚔️';
-            if (categoryName.toLowerCase().includes('spor')) icon = '⚽';
-            if (categoryName.toLowerCase().includes('yarış')) icon = '🏎️';
-            if (categoryName.toLowerCase().includes('online')) icon = '👥';
-            if (categoryName.toLowerCase().includes('strateji')) icon = '🎯';
+            navItem.dataset.category = category.name;
+            
+            const icon = category.icon || '🎮';
 
-            navItem.innerHTML = `<span class="nav-icon">${icon}</span> ${categoryName}`;
+            navItem.innerHTML = `<span class="nav-icon">${icon}</span> ${category.name}`;
             categoryListSidebar.appendChild(navItem);
         });
         addCategoryEventListeners();
@@ -312,13 +321,11 @@ window.addEventListener('DOMContentLoaded', () => {
                 <button class="action-btn">Kayıtlı Oyunlar</button>
                 <button class="action-btn primary" id="logout-button">Çıkış Yap</button>
             `;
-            usernameDisplay.textContent = currentUser;
             document.getElementById('logout-button').addEventListener('click', handleLogout);
         } else {
             userActions.innerHTML = `
                 <button class="action-btn primary" id="login-show-button">Giriş Yap / Kayıt ol</button>
             `;
-            usernameDisplay.textContent = 'Misafir';
             document.getElementById('login-show-button').addEventListener('click', openLoginModal);
         }
     };
@@ -477,7 +484,11 @@ window.addEventListener('DOMContentLoaded', () => {
         });
 
         userRatingStars.addEventListener('click', async e => {
-            if (!authToken) { openLoginModal(); return; }
+            if (!authToken) {
+                closeGameDetail();
+                openLoginModal();
+                return;
+            }
             const gameId = playButtonArea.querySelector('.hero-btn.primary')?.dataset.gameId;
             if(!gameId) return;
 
@@ -506,7 +517,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (favoriteButton) {
         favoriteButton.addEventListener('click', async () => {
-            if (!authToken) { openLoginModal(); return; }
+            if (!authToken) {
+                closeGameDetail();
+                openLoginModal();
+                return;
+            }
             const gameId = parseInt(playButtonArea.querySelector('.hero-btn.primary')?.dataset.gameId, 10);
             if(!gameId) return;
             
@@ -534,6 +549,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     // Başlangıç
+    fetchAndApplySettings();
     fetchGameAndCategories();
     updateUserUI();
 });

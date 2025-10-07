@@ -1,0 +1,33 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Kategori Düzenle{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>"{{ category.name }}" Kategorisini Düzenle</h1>
+        <a href="{{ url_for('manage_categories') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i>
+            Geri Dön
+        </a>
+    </div>
+
+    <div class="form-container">
+        <form method="POST">
+            <div class="section-title">Kategori Bilgileri</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="name">Kategori Adı:</label>
+                    <input type="text" name="name" id="name" value="{{ category.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="icon">İkon (Emoji):</label>
+                    <input type="text" name="icon" id="icon" value="{{ category.icon }}" style="text-align: center;">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                <i class="fas fa-save"></i>
+                Değişiklikleri Kaydet
+            </button>
+        </form>
+    </div>
+{% endblock %}

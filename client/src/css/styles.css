@@ -1,3 +1,14 @@
+@font-face {
+    font-family: 'Pricedown';
+    src: url('../assets/fonts/pricedown.otf') format('opentype');
+}
+
+:root {
+    --primary-start: #ef4444;
+    --primary-end: #dc2626;
+    --primary-gradient: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -15,23 +26,57 @@ body {
 .sidebar { position: fixed; left: 0; top: 0; width: 280px; height: 100vh; background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%); border-right: 1px solid #2a2a2a; z-index: 1000; display: flex; flex-direction: column; overflow-y: auto; }
 .sidebar::-webkit-scrollbar { width: 6px; }
 .sidebar::-webkit-scrollbar-track { background: #0a0a0a; }
-.sidebar::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--primary-start); border-radius: 3px; }
 
-.logo-section { padding: 30px 20px; border-bottom: 1px solid #2a2a2a; }
-.logo { font-size: 1.8rem; font-weight: 900; background: linear-gradient(135deg, #ef4444, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 2px; margin-bottom: 8px; }
-.tagline { color: #666; font-size: 0.85rem; letter-spacing: 0.5px; }
+.logo-section {
+    padding: 30px 20px;
+    border-bottom: 1px solid #2a2a2a;
+    text-align: center; /* Ortalama için eklendi */
+}
+
+.logo {
+    font-family: 'Pricedown', sans-serif; /* Font ailesi değiştirildi */
+    font-size: 3rem; /* Font boyutu büyütüldü */
+    font-weight: 900;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 2px;
+    margin-bottom: 2px; /* Alt boşluk azaltıldı */
+}
+
+.tagline {
+    color: #666;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
 .nav-section { padding: 20px 0; flex: 1; }
 .nav-title { padding: 10px 20px; color: #666; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; }
 .nav-item { display: flex; align-items: center; padding: 14px 20px; color: #aaa; cursor: pointer; transition: all 0.3s ease; position: relative; border-left: 3px solid transparent; }
-.nav-item:hover { background: rgba(239, 68, 68, 0.1); color: #fff; border-left-color: #ef4444; }
-.nav-item.active { background: rgba(239, 68, 68, 0.15); color: #ef4444; border-left-color: #ef4444; font-weight: 600; }
+.nav-item:hover { background: rgba(239, 68, 68, 0.1); color: #fff; border-left-color: var(--primary-start); }
+.nav-item.active { background: rgba(239, 68, 68, 0.15); color: var(--primary-start); border-left-color: var(--primary-start); font-weight: 600; }
 .nav-icon { font-size: 1.3rem; margin-right: 15px; width: 24px; text-align: center; }
 
-.user-section { padding: 20px; border-top: 1px solid #2a2a2a; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.05); }
-.user-avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #ef4444, #dc2626); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; }
-.user-info { flex: 1; }
-.user-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 3px; }
-.user-status { color: #666; font-size: 0.75rem; }
+/* Sosyal Medya İkonları */
+.social-section {
+    padding: 20px;
+    border-top: 1px solid #2a2a2a;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+.social-section a {
+    color: #666;
+    font-size: 1.2rem;
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+.social-section a:hover {
+    color: var(--primary-start);
+    transform: scale(1.2);
+}
+
 
 /* Ana İçerik */
 .main-content { margin-left: 280px; min-height: 100vh; }
@@ -40,24 +85,24 @@ body {
 .top-bar { position: sticky; top: 0; background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px); border-bottom: 1px solid #2a2a2a; padding: 20px 40px; display: flex; align-items: center; gap: 20px; z-index: 100; }
 .search-box { flex: 1; max-width: 500px; position: relative; }
 .search-box input { width: 100%; padding: 12px 45px 12px 20px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; color: #fff; font-size: 0.95rem; transition: all 0.3s ease; }
-.search-box input:focus { outline: none; border-color: #ef4444; background: #0f0f0f; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); }
+.search-box input:focus { outline: none; border-color: var(--primary-start); background: #0f0f0f; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); }
 .search-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; color: #666; }
 .top-actions { display: flex; gap: 15px; }
 .action-btn { padding: 10px 20px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; color: #aaa; cursor: pointer; transition: all 0.3s ease; font-size: 0.9rem; font-weight: 600; }
-.action-btn:hover { background: #ef4444; border-color: #ef4444; color: #fff; transform: translateY(-2px); }
-.action-btn.primary { background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #ef4444; color: #fff; }
+.action-btn:hover { background: var(--primary-start); border-color: var(--primary-start); color: #fff; transform: translateY(-2px); }
+.action-btn.primary { background: var(--primary-gradient); border-color: var(--primary-start); color: #fff; }
 
 /* Hero Bölümü */
 .hero-section { position: relative; height: 450px; margin: 0 40px 40px; border-radius: 16px; overflow: hidden; background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%); }
 .hero-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
 .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, rgba(15,15,15,0.95) 0%, transparent 70%); }
 .hero-content { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 50px; max-width: 600px; }
-.hero-badge { display: inline-block; padding: 8px 16px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 20px; color: #ef4444; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: fit-content; margin-bottom: 20px; }
+.hero-badge { display: inline-block; padding: 8px 16px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--primary-start); border-radius: 20px; color: var(--primary-start); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: fit-content; margin-bottom: 20px; }
 .hero-title { font-size: 3.5rem; font-weight: 900; margin-bottom: 15px; line-height: 1.1; }
 .hero-description { color: #aaa; font-size: 1.1rem; margin-bottom: 30px; line-height: 1.6; }
 .hero-actions { display: flex; gap: 15px; }
 .hero-btn { padding: 15px 35px; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; border: none; }
-.hero-btn.primary { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; }
+.hero-btn.primary { background: var(--primary-gradient); color: #fff; }
 .hero-btn.primary:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4); }
 .hero-btn.secondary { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); }
 .hero-btn.secondary:hover { background: rgba(255, 255, 255, 0.2); }
@@ -66,18 +111,18 @@ body {
 .content-section { padding: 0 40px 40px; }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 .section-title { font-size: 1.8rem; font-weight: 700; }
-.view-all { color: #ef4444; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+.view-all { color: var(--primary-start); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
 .view-all:hover { text-decoration: underline; }
 
 .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
 .game-card { background: #1a1a1a; border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.3s ease; border: 1px solid #2a2a2a; }
-.game-card:hover { transform: translateY(-8px); border-color: #ef4444; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5); }
+.game-card:hover { transform: translateY(-8px); border-color: var(--primary-start); box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5); }
 .game-image-wrapper { position: relative; width: 100%; height: 320px; overflow: hidden; }
 .game-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
 .game-card:hover .game-image { transform: scale(1.1); }
 .game-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 100%); opacity: 0; transition: opacity 0.3s ease; display: flex; align-items: center; justify-content: center; }
 .game-card:hover .game-overlay { opacity: 1; }
-.play-btn { width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #ef4444, #dc2626); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transform: scale(0.8); transition: transform 0.3s ease; }
+.play-btn { width: 60px; height: 60px; border-radius: 50%; background: var(--primary-gradient); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transform: scale(0.8); transition: transform 0.3s ease; }
 .game-card:hover .play-btn { transform: scale(1); }
 .game-info { padding: 15px; }
 .game-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 5px; }
@@ -111,12 +156,12 @@ body {
 
 /* === GİRİŞ MODALI STİLLERİ === */
 .modal-content { background-color: #1a1a1a; border: 1px solid #2a2a2a; margin: auto; padding: 40px; width: 80%; max-width: 400px; border-radius: 12px; position: relative; text-align: center; }
-.modal-content h1 { background: linear-gradient(135deg, #ef4444, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; }
+.modal-content h1 { background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; }
 .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; border-radius: 8px; border: 1px solid #444; background-color: #2a2a2a; color: white; font-size: 16px; }
-.modal-content button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; cursor: pointer; font-size: 16px; font-weight: bold; }
+.modal-content button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: var(--primary-gradient); color: white; cursor: pointer; font-size: 16px; font-weight: bold; }
 #login-form { margin-bottom: 15px; }
 .error-message { color: #ff4d4d; height: 20px; }
-#modal-switch a { color: #ef4444; }
+#modal-switch a { color: var(--primary-start); }
 
 /* === OYUN DETAY MODALI STİLLERİ (GÜNCELLENDİ) === */
 .detail-modal { align-items: flex-start; padding-top: 5vh; overflow-y: auto; }
@@ -128,17 +173,25 @@ body {
 #detail-main-media img, #detail-main-media iframe { width: 100%; height: 100%; display: block; object-fit: cover; border: none; }
 #detail-thumbnail-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; }
 .thumbnail-item { cursor: pointer; border: 2px solid transparent; border-radius: 4px; transition: border-color 0.2s; flex-shrink: 0; }
-.thumbnail-item.active { border-color: #ef4444; }
+.thumbnail-item.active { border-color: var(--primary-start); }
 .thumbnail-item img, .thumbnail-item .video-thumb { width: 100px; height: 56px; object-fit: cover; display: block; border-radius: 2px; }
 .video-thumb { background-color: #000; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; position: relative; }
-.video-thumb i { position: absolute; font-size: 24px; color: rgba(255,255,255,0.8); transition: transform 0.2s; }
+.video-thumb i {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.8);
+    transition: transform 0.2s;
+}
 .info-column { font-size: 1rem; line-height: 1.6; color: #aaa; display: flex; flex-direction: column; }
 .info-column h2 { display: none; }
 #detail-meta { background-color: rgba(15, 15, 15, 0.6); padding: 15px; border-radius: 8px; font-size: 0.9rem; }
 .meta-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2a2a2a; }
 .meta-item:last-child { border-bottom: none; }
 .meta-item span:first-child { color: #666; display: flex; align-items: center; gap: 8px; }
-.meta-item i { color: #ef4444; }
+.meta-item i { color: var(--primary-start); }
 .interactive-section { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; align-items: center; margin-top: 15px; background-color: rgba(15, 15, 15, 0.6); padding: 10px; border-radius: 8px; }
 .rating-container, .favorite-container { text-align: center; }
 .interactive-section h2 { margin-bottom: 5px; font-size: 0.8rem; color: #aaa; }
@@ -150,7 +203,7 @@ body {
 .favorite-button { width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s ease-in-out; margin: 0 auto; }
 .favorite-button i { font-size: 1rem; color: #aaa; transition: all 0.2s ease-in-out; }
 .favorite-button:hover { background-color: rgba(239, 68, 68, 0.2); }
-.favorite-button.is-favorite { background-color: #ef4444; }
+.favorite-button.is-favorite { background-color: var(--primary-start); }
 .favorite-button.is-favorite i { color: #fff; transform: scale(1.2); }
 
 #play-button-area { width: 100%; margin-top: auto; }

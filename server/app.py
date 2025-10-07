@@ -100,9 +100,9 @@ def get_games():
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
     conn = get_db_connection()
-    categories_cursor = conn.execute('SELECT name FROM categories ORDER BY name ASC').fetchall()
+    categories_cursor = conn.execute('SELECT name, icon FROM categories ORDER BY name ASC').fetchall()
     conn.close()
-    categories_list = [row['name'] for row in categories_cursor]
+    categories_list = [{'name': row['name'], 'icon': row['icon']} for row in categories_cursor]
     return jsonify(categories_list)
 
 @app.route('/api/settings', methods=['GET'])
@@ -386,15 +386,35 @@ def manage_categories():
     conn = get_db_connection()
     if request.method == 'POST':
         category_name = request.form['name']
+        category_icon = request.form.get('icon', '🎮') # Varsayılan emoji
         if category_name:
             try:
-                conn.execute('INSERT INTO categories (name) VALUES (?)', (category_name,))
+                conn.execute('INSERT INTO categories (name, icon) VALUES (?, ?)', (category_name, category_icon))
                 conn.commit()
             except sqlite3.IntegrityError: pass
         return redirect(url_for('manage_categories'))
+    
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     conn.close()
     return render_template('manage_categories.html', categories=categories)
+
+@app.route('/admin/categories/edit/<int:category_id>', methods=['GET', 'POST'])
+def edit_category(category_id):
+    conn = get_db_connection()
+    if request.method == 'POST':
+        new_name = request.form['name']
+        new_icon = request.form.get('icon', '🎮')
+        if new_name:
+            conn.execute('UPDATE categories SET name = ?, icon = ? WHERE id = ?', (new_name, new_icon, category_id))
+            conn.commit()
+        conn.close()
+        return redirect(url_for('manage_categories'))
+
+    category = conn.execute('SELECT * FROM categories WHERE id = ?', (category_id,)).fetchone()
+    conn.close()
+    if category is None:
+        return "Kategori bulunamadı!", 404
+    return render_template('edit_category.html', category=category)
 
 @app.route('/admin/categories/delete/<int:category_id>', methods=['POST'])
 def delete_category(category_id):

@@ -10,10 +10,14 @@
     <div class="form-container compact-vertical-padding" style="margin-bottom: 30px;">
         <div class="section-title">Yeni Kategori Ekle</div>
         <form method="POST">
-            <div class="single-row-form">
+            <div class="single-row-form" style="grid-template-columns: 1fr auto auto; display: grid; gap: 20px;">
                 <div class="form-group">
                     <label for="name">Kategori Adı:</label>
                     <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="icon">İkon (Emoji):</label>
+                    <input type="text" id="icon" name="icon" style="width: 100px; text-align: center;">
                 </div>
                 <button type="submit" class="btn btn-primary" style="white-space: nowrap; flex-shrink: 0;">
                     <i class="fas fa-plus"></i>
@@ -28,6 +32,7 @@
             <thead>
                 <tr>
                     <th style="width: 60px;">ID</th>
+                    <th style="width: 80px; text-align: center;">İkon</th>
                     <th>Kategori Adı</th>
                     <th style="width: 120px;">İşlemler</th>
                 </tr>
@@ -36,9 +41,11 @@
                 {% for category in categories %}
                 <tr>
                     <td>{{ category.id }}</td>
+                    <td style="text-align: center; font-size: 1.5rem;">{{ category.icon }}</td>
                     <td class="game-name">{{ category.name }}</td>
                     <td>
                         <div class="action-buttons">
+                            <a href="{{ url_for('edit_category', category_id=category.id) }}" class="btn-icon btn-edit" title="Düzenle"><i class="fas fa-edit"></i></a>
                             <form action="{{ url_for('delete_category', category_id=category.id) }}" method="POST" class="actions-form">
                                 <button type="submit" class="btn-icon btn-delete" onclick="return confirm('Bu kategoriyi silmek, bu kategorideki tüm oyunların kategorisiz kalmasına neden olur. Emin misin?');" title="Sil"><i class="fas fa-trash"></i></button>
                             </form>

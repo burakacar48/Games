@@ -22,10 +22,12 @@ def init_db():
         )
         ''')
 
+        # GÜNCELLENDİ: 'categories' tablosuna 'icon' alanı eklendi
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            icon TEXT
         )
         ''')
 
@@ -71,6 +73,13 @@ def init_db():
         except:
             pass
 
+        # YENİ: Mevcut veritabanları için 'icon' sütununu ekleme
+        try:
+            cursor.execute('ALTER TABLE categories ADD COLUMN icon TEXT')
+            print("Mevcut 'categories' tablosu 'icon' kolonu eklenerek güncellendi.")
+        except:
+            pass
+
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_ratings (
             user_id INTEGER NOT NULL,
@@ -111,8 +120,15 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM categories")
         if cursor.fetchone()[0] == 0:
             print("Tablo boştu, örnek kategoriler ekleniyor...")
-            sample_categories = [('FPS',), ('RPG',), ('MOBA',), ('Strateji',), ('Online Oyunlar',)]
-            cursor.executemany('INSERT INTO categories (name) VALUES (?)', sample_categories)
+            # GÜNCELLENDİ: Örnek kategorilere ikonlar eklendi
+            sample_categories = [
+                ('FPS', '🎯'), 
+                ('RPG', '📜'), 
+                ('MOBA', '⚔️'), 
+                ('Strateji', '🧠'), 
+                ('Online Oyunlar', '🌐')
+            ]
+            cursor.executemany('INSERT INTO categories (name, icon) VALUES (?, ?)', sample_categories)
 
         cursor.execute("SELECT COUNT(*) FROM settings")
         if cursor.fetchone()[0] == 0:
