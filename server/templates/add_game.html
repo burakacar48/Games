@@ -3,13 +3,20 @@
 {% block title %}Yeni Oyun Ekle{% endblock %}
 
 {% block content %}
-    <h2>Yeni Oyun Ekle</h2>
+    <div class="header">
+        <h1>Yeni Oyun Ekle</h1>
+        <a href="{{ url_for('list_games') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i>
+            Geri Dön
+        </a>
+    </div>
 
-    <form method="POST" enctype="multipart/form-data">
-        <fieldset>
-            <legend>Temel Bilgiler</legend>
+    <div class="form-container">
+        <form method="POST" enctype="multipart/form-data">
+            
+            <div class="section-title">Temel Bilgiler</div>
             <div class="form-grid">
-                <div class="form-group form-full-width">
+                <div class="form-group full-width">
                     <label for="oyun_adi_input">Oyun Adı:</label>
                     <input type="text" name="oyun_adi" id="oyun_adi_input" required>
                 </div>
@@ -34,22 +41,20 @@
                     <label for="pegi_input">PEGI Rating:</label>
                     <input type="text" name="pegi" id="pegi_input" placeholder="PEGI 18">
                 </div>
-                <div class="form-group form-full-width">
+                <div class="form-group full-width">
                     <label for="aciklama_textarea">Açıklama:</label>
                     <textarea name="aciklama" id="aciklama_textarea" rows="4"></textarea>
                 </div>
             </div>
-        </fieldset>
 
-        <fieldset>
-            <legend>Görsel Yönetimi</legend>
+            <div class="section-title" style="margin-top: 20px;">Görsel Yönetimi</div>
             <div class="form-grid">
                 <div class="form-group">
                     <label>Kapak Resmi</label>
                     <p class="file-prompt">Lütfen bir kapak resmi seçin:</p>
                     <div class="custom-file-input-wrapper">
                         <input type="file" name="cover_image" id="cover_image_input_custom" class="file-input" accept="image/jpeg, image/png, image/webp">
-                        <label for="cover_image_input_custom" class="button button-blue">Dosya Seç...</label>
+                        <label for="cover_image_input_custom" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosya Seç...</label>
                         <span class="file-name" id="cover_image_name">Dosya seçilmedi</span>
                     </div>
                 </div>
@@ -58,17 +63,15 @@
                     <p class="file-prompt">Lütfen galeri resimleri seçin (birden çok seçebilirsiniz):</p>
                     <div class="custom-file-input-wrapper">
                         <input type="file" name="gallery_images" id="gallery_images_input_custom" class="file-input" accept="image/jpeg, image/png, image/webp" multiple>
-                        <label for="gallery_images_input_custom" class="button button-blue">Dosyaları Seç...</label>
+                        <label for="gallery_images_input_custom" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosyaları Seç...</label>
                         <span class="file-name" id="gallery_images_name">Dosya seçilmedi</span>
                     </div>
                 </div>
             </div>
-        </fieldset>
-        
-        <fieldset>
-            <legend>Teknik Bilgiler</legend>
+
+            <div class="section-title" style="margin-top: 20px;">Teknik Bilgiler</div>
             <div class="form-grid">
-                <div class="form-group form-full-width">
+                <div class="form-group full-width">
                     <label for="save_yolu_input">Save Dosyası Yolu:</label>
                     <input type="text" name="save_yolu" id="save_yolu_input" placeholder="%USERPROFILE%\Documents\My Games\...">
                 </div>
@@ -94,10 +97,13 @@
                     </div>
                 </div>
             </div>
-        </fieldset>
 
-        <button type="submit" class="button-green form-full-width">Yeni Oyunu Ekle</button>
-    </form>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                <i class="fas fa-save"></i>
+                Yeni Oyunu Ekle
+            </button>
+        </form>
+    </div>
     
     <script>
         function updateCalistirmaInputs() {

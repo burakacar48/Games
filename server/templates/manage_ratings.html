@@ -3,43 +3,48 @@
 {% block title %}Puan Yönetimi{% endblock %}
 
 {% block content %}
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-        <h2 style="border: none; margin: 0;">Puan Yönetimi</h2>
+    <div class="header">
+        <h1>Puan Yönetimi</h1>
         <form action="{{ url_for('reset_all_ratings') }}" method="POST" onsubmit="return confirm('TÜM oyunlara ait BÜTÜN puanları kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!');">
-            <button type="submit" class="button-red">Tüm Puanları Sıfırla</button>
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);">
+                <i class="fas fa-trash"></i>
+                Tüm Puanları Sıfırla
+            </button>
         </form>
     </div>
     
-    <p style="margin-top: 20px;">Oyunlara verilen puanları buradan görüntüleyebilirsiniz. Sıralamak için tablo başlıklarına tıklayın.</p>
+    <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">Oyunlara verilen puanları buradan görüntüleyebilirsiniz. Sıralamak için tablo başlıklarına tıklayın.</p>
 
-    <table>
-        <thead>
-            <tr>
-                <th>
-                    <a href="{{ url_for('manage_ratings', sort_by='oyun_adi', order=next_order if sort_by == 'oyun_adi' else 'asc') }}">
-                        Oyun Adı {% if sort_by == 'oyun_adi' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
-                    </a>
-                </th>
-                <th style="width: 150px; text-align: center;">
-                    <a href="{{ url_for('manage_ratings', sort_by='average_rating', order=next_order if sort_by == 'average_rating' else 'desc') }}">
-                        Ortalama Puan {% if sort_by == 'average_rating' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
-                    </a>
-                </th>
-                <th style="width: 150px; text-align: center;">
-                    <a href="{{ url_for('manage_ratings', sort_by='rating_count', order=next_order if sort_by == 'rating_count' else 'desc') }}">
-                        Toplam Oy {% if sort_by == 'rating_count' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
-                    </a>
-                </th>
+    <div class="games-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>
+                        <a href="{{ url_for('manage_ratings', sort_by='oyun_adi', order=next_order if sort_by == 'oyun_adi' else 'asc') }}" style="color: inherit; text-decoration: none;">
+                            Oyun Adı {% if sort_by == 'oyun_adi' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="width: 150px; text-align: center;">
+                        <a href="{{ url_for('manage_ratings', sort_by='average_rating', order=next_order if sort_by == 'average_rating' else 'desc') }}" style="color: inherit; text-decoration: none;">
+                            Ortalama Puan {% if sort_by == 'average_rating' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="width: 150px; text-align: center;">
+                        <a href="{{ url_for('manage_ratings', sort_by='rating_count', order=next_order if sort_by == 'rating_count' else 'desc') }}" style="color: inherit; text-decoration: none;">
+                            Toplam Oy {% if sort_by == 'rating_count' %}{{ '↓' if next_order == 'asc' else '↑' }}{% endif %}
+                        </a>
+                    </th>
                 </tr>
-        </thead>
-        <tbody>
-            {% for game in games %}
-            <tr>
-                <td>{{ game.oyun_adi }}</td>
-                <td style="text-align: center;">{{ "%.1f"|format(game.average_rating) }} ★</td>
-                <td style="text-align: center;">{{ game.rating_count }}</td>
+            </thead>
+            <tbody>
+                {% for game in games %}
+                <tr>
+                    <td class="game-name">{{ game.oyun_adi }}</td>
+                    <td style="text-align: center;">{{ "%.1f"|format(game.average_rating) }} ★</td>
+                    <td style="text-align: center;">{{ game.rating_count }}</td>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

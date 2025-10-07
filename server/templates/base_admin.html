@@ -2,51 +2,61 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Admin Paneli{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_styles.css') }}">
-    <style>
-        .sidebar h2 {
-            color: var(--text-secondary);
-            font-size: 16px;
-            padding: 15px 0;
-            margin: 20px 0 5px 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .sidebar .submenu {
-            padding-left: 15px;
-        }
-        .sidebar .submenu a {
-            padding: 10px 15px;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-    </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h1>Oyun Menüsü</h1>
-        <nav>
-            <h2>Oyun Yönetimi</h2>
-            <div class="submenu">
-                <a href="{{ url_for('list_games') }}">Oyun Listesi</a>
-                <a href="{{ url_for('add_game') }}">Oyun Ekle</a>
-                <a href="{{ url_for('manage_categories') }}">Kategoriler</a>
-                <a href="{{ url_for('manage_ratings') }}">Puan Yönetimi</a>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-gamepad"></i>
+                <h2>Oyun Menüsü</h2>
             </div>
 
-            <h2>Kullanıcılar</h2>
-            <div class="submenu">
-                <a href="{{ url_for('manage_users') }}">Üye Bilgileri</a>
+            <div class="menu-section">
+                <div class="menu-title">Oyun Yönetimi</div>
+                {% set game_list_endpoints = ['list_games', 'edit_game', 'delete_game'] %}
+                <a href="{{ url_for('list_games') }}" class="menu-item {% if request.endpoint in game_list_endpoints %}active{% endif %}">
+                    <i class="fas fa-list"></i>
+                    <span>Oyun Listesi</span>
+                </a>
+                <a href="{{ url_for('add_game') }}" class="menu-item {% if request.endpoint == 'add_game' %}active{% endif %}">
+                    <i class="fas fa-plus"></i>
+                    <span>Oyun Ekle</span>
+                </a>
+                <a href="{{ url_for('manage_categories') }}" class="menu-item {% if request.endpoint == 'manage_categories' or request.endpoint == 'delete_category' %}active{% endif %}">
+                    <i class="fas fa-folder"></i>
+                    <span>Kategoriler</span>
+                </a>
+                <a href="{{ url_for('manage_ratings') }}" class="menu-item {% if request.endpoint == 'manage_ratings' or request.endpoint == 'reset_all_ratings' %}active{% endif %}">
+                    <i class="fas fa-trophy"></i>
+                    <span>Puan Yönetimi</span>
+                </a>
             </div>
 
-            <h2>Sistem</h2>
-            <div class="submenu">
-                <a href="{{ url_for('general_settings') }}">Genel Ayarlar</a>
+            <div class="menu-section">
+                <div class="menu-title">Kullanıcılar</div>
+                {% set user_management_endpoints = ['manage_users', 'edit_user', 'delete_user'] %}
+                <a href="{{ url_for('manage_users') }}" class="menu-item {% if request.endpoint in user_management_endpoints %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Üye Bilgileri</span>
+                </a>
             </div>
-        </nav>
-    </div>
-    <div class="main-content">
-        {% block content %}{% endblock %}
+
+            <div class="menu-section">
+                <div class="menu-title">Sistem</div>
+                <a href="{{ url_for('general_settings') }}" class="menu-item {% if request.endpoint == 'general_settings' %}active{% endif %}">
+                    <i class="fas fa-cog"></i>
+                    <span>Genel Ayarlar</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
     </div>
 </body>
 </html>

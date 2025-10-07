@@ -3,13 +3,20 @@
 {% block title %}Oyunu Düzenle{% endblock %}
 
 {% block content %}
-    <h2>"{{ game.oyun_adi }}" Düzenle</h2>
+    <div class="header">
+        <h1>"{{ game.oyun_adi }}" Düzenle</h1>
+        <a href="{{ url_for('list_games') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i>
+            Geri Dön
+        </a>
+    </div>
     
-    <form method="POST" enctype="multipart/form-data">
-        <fieldset>
-            <legend>Temel Bilgiler</legend>
+    <div class="form-container">
+        <form method="POST" enctype="multipart/form-data">
+            
+            <div class="section-title">Temel Bilgiler</div>
             <div class="form-grid">
-                <div class="form-group form-full-width">
+                <div class="form-group full-width">
                     <label for="oyun_adi_input">Oyun Adı:</label>
                     <input type="text" name="oyun_adi" id="oyun_adi_input" value="{{ game.oyun_adi }}" required>
                 </div>
@@ -36,27 +43,24 @@
                     <label for="pegi_input">PEGI Rating:</label>
                     <input type="text" name="pegi" id="pegi_input" value="{{ game.pegi }}">
                 </div>
-                <div class="form-group form-full-width">
+                <div class="form-group full-width">
                     <label for="aciklama_textarea">Açıklama:</label>
                     <textarea name="aciklama" id="aciklama_textarea" rows="4">{{ game.aciklama }}</textarea>
                 </div>
             </div>
-        </fieldset>
 
-        <fieldset>
-            <legend>Görsel Yönetimi</legend>
+            <div class="section-title" style="margin-top: 20px;">Görsel Yönetimi</div>
             <div class="form-grid">
                 <div class="form-group">
                     <label>Kapak Resmi</label>
-                    {% if game.cover_image %}<img src="{{ url_for('static', filename='images/covers/' + game.cover_image) }}" alt="Mevcut Kapak" class="image-preview">{% endif %}
+                    <p class="file-prompt">Mevcut Resim:</p>
+                    {% if game.cover_image %}<img src="{{ url_for('static', filename='images/covers/' + game.cover_image) }}" alt="Mevcut Kapak" class="image-preview">{% else %}<p class="file-prompt">Mevcut kapak resmi yok.</p>{% endif %}
                     <input type="hidden" name="current_cover_image" value="{{ game.cover_image }}">
-                    <div class="form-footer">
-                        <p class="file-prompt">Değiştirmek için yeni bir resim seçin:</p>
-                        <div class="custom-file-input-wrapper">
-                            <input type="file" name="cover_image" id="cover_image_input_custom" class="file-input" accept="image/jpeg, image/png, image/webp">
-                            <label for="cover_image_input_custom" class="button button-blue">Dosya Seç...</label>
-                            <span class="file-name" id="cover_image_name">Dosya seçilmedi</span>
-                        </div>
+                    <p class="file-prompt">Değiştirmek için yeni bir resim seçin:</p>
+                    <div class="custom-file-input-wrapper">
+                        <input type="file" name="cover_image" id="cover_image_input_custom" class="file-input" accept="image/jpeg, image/png, image/webp">
+                        <label for="cover_image_input_custom" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosya Seç...</label>
+                        <span class="file-name" id="cover_image_name">Dosya seçilmedi</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -65,22 +69,18 @@
                     <div class="gallery-container">
                         {% if gallery %}{% for img in gallery %}<div class="gallery-item"><label><input type="checkbox" name="delete_gallery" value="{{ img.image_path }}" class="delete-checkbox"><img src="{{ url_for('static', filename='images/gallery/' + img.image_path) }}" alt="Galeri Resmi"><div class="delete-overlay"><svg class="trash-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg></div></label></div>{% endfor %}{% else %}<p class="file-prompt">Mevcut galeri resmi yok.</p>{% endif %}
                     </div>
-                    <div class="form-footer">
-                        <p class="file-prompt">Yeni galeri resimleri ekle:</p>
-                        <div class="custom-file-input-wrapper">
-                            <input type="file" name="gallery_images" id="gallery_images_input_custom" class="file-input" accept="image/jpeg, image/png, image/webp" multiple>
-                            <label for="gallery_images_input_custom" class="button button-blue">Dosyaları Seç...</label>
-                            <span class="file-name" id="gallery_images_name">Dosya seçilmedi</span>
-                        </div>
+                    <p class="file-prompt" style="margin-top: 20px;">Yeni galeri resimleri ekle:</p>
+                    <div class="custom-file-input-wrapper">
+                        <input type="file" name="gallery_images" id="gallery_images_input_custom" class="file-input" accept="image/jpeg, image/png, image/webp" multiple>
+                        <label for="gallery_images_input_custom" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosyaları Seç...</label>
+                        <span class="file-name" id="gallery_images_name">Dosya seçilmedi</span>
                     </div>
                 </div>
             </div>
-        </fieldset>
-        
-        <fieldset>
-            <legend>Teknik Bilgiler</legend>
+            
+            <div class="section-title" style="margin-top: 20px;">Teknik Bilgiler</div>
             <div class="form-grid">
-                <div class="form-group form-full-width">
+                <div class="form-group full-width">
                     <label for="save_yolu_input">Save Dosyası Yolu:</label>
                     <input type="text" name="save_yolu" id="save_yolu_input" value="{{ game.save_yolu }}">
                 </div>
@@ -106,13 +106,14 @@
                     </div>
                 </div>
             </div>
-        </fieldset>
 
-        <button type="submit" class="button-blue form-full-width">Değişiklikleri Kaydet</button>
-    </form>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                <i class="fas fa-save"></i>
+                Değişiklikleri Kaydet
+            </button>
+        </form>
+    </div>
     
-    <p><a href="{{ url_for('list_games') }}" class="button button-secondary">Geri Dön</a></p>
-
     <script>
         function updateCalistirmaInputs() {
             const tip = document.getElementById('calistirma_tipi').value;
