@@ -269,9 +269,24 @@ body.custom-background::before {
 .interactive-section h2 { margin-top: 0; margin-bottom: 10px; padding-bottom: 0; border-bottom: none; font-size: 16px; color: #a0aec0; }
 .rating-summary { font-size: 13px; color: #a0aec0; margin-top: 15px; text-align: center; }
 .stars-outer { position: relative; display: inline-block; cursor: pointer; }
-.stars-outer::before { color: #4a5568; }
-.stars-inner { position: absolute; top: 0; left: 0; white-space: nowrap; overflow: hidden; width: 0; }
-.stars-inner::before { content: '★★★★★'; font-size: 32px; color: #ffc107; }
+.stars-outer::before { 
+    content: '★★★★★'; 
+    font-size: 32px; /* FIX 3: Büyüme/Kayma sorununu engeller */
+    color: #4a5568; 
+}
+.stars-inner { 
+    position: absolute; 
+    top: -3px; 
+    left: 0; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    width: 0; 
+}
+.stars-inner::before { 
+    content: '★★★★★'; 
+    font-size: 32px; /* FIX 3: Büyüme/Kayma sorununu engeller */
+    color: #ffc107; 
+}
 .favorite-button { width: 50px; height: 50px; background-color: rgba(255, 255, 255, 0.1); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s ease-in-out; margin: 0 auto; }
 .favorite-button svg { width: 24px; height: 24px; fill: #a0aec0; transition: all 0.2s ease-in-out; }
 .favorite-button:hover { background-color: rgba(255, 107, 107, 0.2); }
@@ -298,4 +313,5 @@ body.custom-background::before {
 .::-webkit-scrollbar-thumb:hover { 
     /* GÜNCELLENDİ */
     background-color: var(--theme-primary-end); 
+}
 }

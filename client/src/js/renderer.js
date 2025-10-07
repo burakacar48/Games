@@ -35,7 +35,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const thumbnailStrip = document.getElementById('detail-thumbnail-strip');
     const detailPlayButton = document.getElementById('detail-play-button');
     const userRatingStars = document.getElementById('user-rating-stars');
-    const userRatingInner = userRatingStars.querySelector('.stars-inner');
+    const userRatingInner = userRatingStars ? userRatingStars.querySelector('.stars-inner') : null; // Null check eklendi
     const averageRatingSummary = document.getElementById('average-rating-summary');
     const favoriteButton = document.getElementById('favorite-button');
 
@@ -46,11 +46,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 <span class="user-info">👤 ${currentUser}</span>
                 <button id="logout-button" class="btn-logout">Çıkış Yap</button>
             `;
+            // Listener'ı eklemeden önce düğmenin varlığını kontrol etmeye gerek yok, 
+            // çünkü innerHTML ile hemen oluşturuluyor.
             document.getElementById('logout-button').addEventListener('click', handleLogout);
         } else {
             userSessionContainer.innerHTML = `
                 <button id="show-login-button" class="btn-login">Giriş Yap / Kayıt Ol</button>
             `;
+            // Listener'ı eklemeden önce düğmenin varlığını kontrol etmeye gerek yok.
             document.getElementById('show-login-button').addEventListener('click', openLoginModal);
         }
     };
@@ -217,17 +220,23 @@ window.addEventListener('DOMContentLoaded', () => {
     
     const updateRatingDisplay = (game) => {
         const avgRating = game.average_rating ? game.average_rating.toFixed(1) : 'N/A';
-        averageRatingSummary.textContent = `Ortalama Puan: ${avgRating} (${game.rating_count || 0} oy)`;
+        if (averageRatingSummary) { // Null check
+            averageRatingSummary.textContent = `Ortalama Puan: ${avgRating} (${game.rating_count || 0} oy)`;
+        }
         const userRating = userRatings[game.id] || 0;
-        userRatingInner.style.width = `${(userRating / 5) * 100}%`;
+        if (userRatingInner) { // Null check
+            userRatingInner.style.width = `${(userRating / 5) * 100}%`;
+        }
     };
 
     const updateFavoriteDisplay = (gameId) => {
-        favoriteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"/></svg>`;
-        if (userFavorites.has(gameId)) {
-            favoriteButton.classList.add('is-favorite');
-        } else {
-            favoriteButton.classList.remove('is-favorite');
+        if (favoriteButton) { // Null check
+            favoriteButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"/></svg>`;
+            if (userFavorites.has(gameId)) {
+                favoriteButton.classList.add('is-favorite');
+            } else {
+                favoriteButton.classList.remove('is-favorite');
+            }
         }
     };
     
@@ -265,24 +274,26 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (!game.youtube_id && index === 0) { imgThumb.click(); }
             });
         }
-        detailPlayButton.dataset.gameId = game.id;
-        gameDetailModal.style.display = 'block';
+        if (detailPlayButton) detailPlayButton.dataset.gameId = game.id;
+        if (gameDetailModal) gameDetailModal.style.display = 'block';
     };
 
-    const closeGameDetail = () => { gameDetailModal.style.display = 'none'; mainMedia.innerHTML = ''; };
+    const closeGameDetail = () => { if (gameDetailModal) gameDetailModal.style.display = 'none'; mainMedia.innerHTML = ''; };
     const syncAndLaunch = async (game) => { window.electronAPI.launchGame(game); };
     const setModalMode = (mode) => {
-        loginForm.reset(); loginError.textContent = '';
-        if (mode === 'login') {
-            modalTitle.textContent = 'Giriş Yap'; modalButton.textContent = 'Giriş'; loginForm.dataset.mode = 'login';
-            modalSwitchToRegister.classList.remove('hidden'); modalSwitchToLogin.classList.add('hidden');
-        } else {
-            modalTitle.textContent = 'Kayıt Ol'; modalButton.textContent = 'Kayıt Ol'; loginForm.dataset.mode = 'register';
-            modalSwitchToRegister.classList.add('hidden'); modalSwitchToLogin.classList.remove('hidden');
+        if (loginForm && loginError && modalTitle && modalButton && modalSwitchToRegister && modalSwitchToLogin) {
+            loginForm.reset(); loginError.textContent = '';
+            if (mode === 'login') {
+                modalTitle.textContent = 'Giriş Yap'; modalButton.textContent = 'Giriş'; loginForm.dataset.mode = 'login';
+                modalSwitchToRegister.classList.remove('hidden'); modalSwitchToLogin.classList.add('hidden');
+            } else {
+                modalTitle.textContent = 'Kayıt Ol'; modalButton.textContent = 'Kayıt Ol'; loginForm.dataset.mode = 'register';
+                modalSwitchToRegister.classList.add('hidden'); modalSwitchToLogin.classList.remove('hidden');
+            }
         }
     };
-    const openLoginModal = () => { setModalMode('login'); loginModal.style.display = 'block'; document.getElementById('username').focus(); };
-    const closeLoginModal = () => { loginModal.style.display = 'none'; };
+    const openLoginModal = () => { setModalMode('login'); if (loginModal) loginModal.style.display = 'block'; const usernameInput = document.getElementById('username'); if (usernameInput) usernameInput.focus(); };
+    const closeLoginModal = () => { if (loginModal) loginModal.style.display = 'none'; };
 
     const handleLogin = (event) => {
         event.preventDefault();
@@ -299,11 +310,11 @@ window.addEventListener('DOMContentLoaded', () => {
                     fetch(`${SERVER_URL}/api/user/ratings`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json()).then(ratings => userRatings = ratings);
                     fetch(`${SERVER_URL}/api/user/favorites`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(res => res.json()).then(favorites => { userFavorites = new Set(favorites); filterGames(); });
                 } else {
-                    loginError.textContent = data.mesaj;
+                    if (loginError) loginError.textContent = data.mesaj;
                     setTimeout(() => setModalMode('login'), 2000);
                 }
             })
-            .catch(error => { loginError.textContent = error.message; });
+            .catch(error => { if (loginError) loginError.textContent = error.message; });
     };
 
     const handleLogout = () => {
@@ -312,79 +323,109 @@ window.addEventListener('DOMContentLoaded', () => {
         filterGames();
     };
 
-    searchInput.addEventListener('input', filterGames);
-    gameListContainer.addEventListener('click', (e) => {
-        const card = e.target.closest('.game-card');
-        if (card) { const game = allGames.find(g => g.id == card.dataset.gameId); if(game) showGameDetail(game); }
-    });
-    detailPlayButton.addEventListener('click', () => {
-        const game = allGames.find(g => g.id == detailPlayButton.dataset.gameId);
-        if(game) { closeGameDetail(); syncAndLaunch(game); }
-    });
-    loginForm.addEventListener('submit', handleLogin);
-    document.querySelectorAll('.close-button').forEach(btn => { btn.addEventListener('click', () => { closeLoginModal(); closeGameDetail(); }); });
-    modalSwitchToRegister.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('register'); });
-    modalSwitchToLogin.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('login'); });
+    // --- Olay Dinleyicileri (Event Listeners) - Hata Kontrollü Sürüm ---
     
-    userRatingStars.addEventListener('mousemove', e => {
-        const rect = userRatingStars.getBoundingClientRect();
-        const hoverWidth = e.clientX - rect.left;
-        const rating = Math.max(0.5, Math.ceil((hoverWidth / rect.width) * 10) / 2);
-        userRatingInner.style.width = `${(rating / 5) * 100}%`;
-    });
-    userRatingStars.addEventListener('mouseleave', () => {
-        const gameId = detailPlayButton.dataset.gameId;
-        if (gameId && allGames.length > 0) { const game = allGames.find(g => g.id == gameId); if (game) updateRatingDisplay(game); }
-    });
-    userRatingStars.addEventListener('click', async e => {
-        if (!authToken) { alert("Puan vermek için giriş yapmalısınız."); openLoginModal(); return; }
-        const gameId = detailPlayButton.dataset.gameId;
-        const rect = userRatingStars.getBoundingClientRect();
-        const clickWidth = e.clientX - rect.left;
-        const rating = Math.max(0.5, Math.ceil((clickWidth / rect.width) * 10) / 2);
-        try {
-            const response = await fetch(`${SERVER_URL}/api/games/${gameId}/rate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                body: JSON.stringify({ rating: rating })
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.mesaj);
-            userRatings[gameId] = rating;
-            const game = allGames.find(g => g.id == gameId);
-            game.average_rating = result.average_rating;
-            game.rating_count = result.rating_count;
-            updateRatingDisplay(game);
-            alert(`Puanınız (${rating}) başarıyla kaydedildi!`);
-        } catch (error) {
-            alert(`Puan kaydedilirken hata oluştu: ${error.message}`);
-        }
-    });
+    // Arama Çubuğu
+    if (searchInput) searchInput.addEventListener('input', filterGames);
 
-    favoriteButton.addEventListener('click', async () => {
-        if (!authToken) { alert("Favorilere eklemek için giriş yapmalısınız."); openLoginModal(); return; }
-        const gameId = parseInt(detailPlayButton.dataset.gameId, 10);
-        try {
-            const response = await fetch(`${SERVER_URL}/api/games/${gameId}/favorite`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.mesaj);
-            if (result.is_favorite) { userFavorites.add(gameId); } 
-            else { userFavorites.delete(gameId); }
-            updateFavoriteDisplay(gameId);
-            filterGames();
-        } catch (error) {
-            alert(`Bir hata oluştu: ${error.message}`);
-        }
-    });
+    // Oyun Kartları
+    if (gameListContainer) {
+        gameListContainer.addEventListener('click', (e) => {
+            const card = e.target.closest('.game-card');
+            if (card) { const game = allGames.find(g => g.id == card.dataset.gameId); if(game) showGameDetail(game); }
+        });
+    }
 
+    // Detay Modal Oynat Butonu
+    if (detailPlayButton) {
+        detailPlayButton.addEventListener('click', () => {
+            const game = allGames.find(g => g.id == detailPlayButton.dataset.gameId);
+            if(game) { closeGameDetail(); syncAndLaunch(game); }
+        });
+    }
+
+    // Giriş Formu Submit
+    if (loginForm) loginForm.addEventListener('submit', handleLogin);
+    
+    // Modal Kapatma Butonları
+    document.querySelectorAll('.close-button').forEach(btn => { 
+        btn.addEventListener('click', () => { closeLoginModal(); closeGameDetail(); }); 
+    });
+    
+    // Modal Geçiş Linkleri
+    if (modalSwitchToRegister && modalSwitchToRegister.querySelector('a')) {
+        modalSwitchToRegister.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('register'); });
+    }
+    if (modalSwitchToLogin && modalSwitchToLogin.querySelector('a')) {
+        modalSwitchToLogin.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('login'); });
+    }
+    
+    // Puanlama Yıldızları
+    if (userRatingStars && userRatingInner) {
+        userRatingStars.addEventListener('mousemove', e => {
+            const rect = userRatingStars.getBoundingClientRect();
+            const hoverWidth = e.clientX - rect.left;
+            const rating = Math.max(0.5, Math.ceil((hoverWidth / rect.width) * 10) / 2);
+            userRatingInner.style.width = `${(rating / 5) * 100}%`;
+        });
+        userRatingStars.addEventListener('mouseleave', () => {
+            const gameId = detailPlayButton.dataset.gameId;
+            if (gameId && allGames.length > 0) { const game = allGames.find(g => g.id == gameId); if (game) updateRatingDisplay(game); }
+        });
+        userRatingStars.addEventListener('click', async e => {
+            if (!authToken) { alert("Puan vermek için giriş yapmalısınız."); openLoginModal(); return; }
+            const gameId = detailPlayButton.dataset.gameId;
+            const rect = userRatingStars.getBoundingClientRect();
+            const clickWidth = e.clientX - rect.left;
+            const rating = Math.max(0.5, Math.ceil((clickWidth / rect.width) * 10) / 2);
+            try {
+                const response = await fetch(`${SERVER_URL}/api/games/${gameId}/rate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                    body: JSON.stringify({ rating: rating })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.mesaj);
+                userRatings[gameId] = rating;
+                const game = allGames.find(g => g.id == gameId);
+                game.average_rating = result.average_rating;
+                game.rating_count = result.rating_count;
+                updateRatingDisplay(game);
+                alert(`Puanınız (${rating}) başarıyla kaydedildi!`);
+            } catch (error) {
+                alert(`Puan kaydedilirken hata oluştu: ${error.message}`);
+            }
+        });
+    }
+
+    // Favori Butonu
+    if (favoriteButton && detailPlayButton) {
+        favoriteButton.addEventListener('click', async () => {
+            if (!authToken) { alert("Favorilere eklemek için giriş yapmalısınız."); openLoginModal(); return; }
+            const gameId = parseInt(detailPlayButton.dataset.gameId, 10);
+            try {
+                const response = await fetch(`${SERVER_URL}/api/games/${gameId}/favorite`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.mesaj);
+                if (result.is_favorite) { userFavorites.add(gameId); } 
+                else { userFavorites.delete(gameId); }
+                updateFavoriteDisplay(gameId);
+                filterGames();
+            } catch (error) {
+                alert(`Bir hata oluştu: ${error.message}`);
+            }
+        });
+    }
+
+    // Modal Dışına Tıklama
     window.addEventListener('click', (e) => { 
         if (e.target.classList.contains('modal')) { closeLoginModal(); closeGameDetail(); }
     });
 
     fetchSettings();
     fetchGames();
-    updateUserUI();
+    updateUserUI(); // Bu, Giriş/Kayıt Ol düğmesini oluşturur ve olay dinleyicisini ekler.
 });
