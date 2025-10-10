@@ -324,7 +324,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const updateSectionTitle = (filter) => {
         const titles = {
-            'all': 'Tüm Oyunlar',
+            'all': 'Son Eklenen Oyunlar', // BURASI GÜNCELLENDİ
             'favorites': 'Favori Oyunlarım',
             'recent': 'Son Oynanan Oyunlar',
             'discover': 'Tüm Oyunları Keşfet'
