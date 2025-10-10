@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for, send_from_directory
+from flask import Flask, jsonify, render_template, request, redirect, url_for, send_from_directory, Response
 from flask_cors import CORS
 import sqlite3
 import os
@@ -23,6 +23,11 @@ app.config['UPLOAD_FOLDER_100_SAVES'] = os.path.join(BASE_DIR, 'yuzde_yuz_saves'
 app.config['UPLOAD_FOLDER_LOGOS'] = os.path.join(BASE_DIR, 'static/images/logos')
 
 DATABASE = 'kafe.db'
+
+# KÖK ÇÖZÜM: JSON yanıtlarını UTF-8 olarak göndermek için yardımcı fonksiyon
+def json_response(data, status_code=200):
+    response_data = json.dumps(data, ensure_ascii=False)
+    return Response(response_data, status=status_code, content_type='application/json; charset=utf-8')
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE, check_same_thread=False)
@@ -97,7 +102,7 @@ def get_games():
         game_dict['galeri'] = gallery_images
         games_list.append(game_dict)
     conn.close()
-    return jsonify(games_list)
+    return json_response(games_list)
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
@@ -105,20 +110,19 @@ def get_categories():
     categories_cursor = conn.execute('SELECT name, icon FROM categories ORDER BY name ASC').fetchall()
     conn.close()
     categories_list = [{'name': row['name'], 'icon': row['icon']} for row in categories_cursor]
-    return jsonify(categories_list)
+    return json_response(categories_list)
 
 @app.route('/api/slider', methods=['GET'])
 def get_slider_data():
     conn = get_db_connection()
-    sliders = conn.execute('SELECT * FROM slider WHERE is_active = 1 ORDER BY display_order ASC').fetchall()
+    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id WHERE s.is_active = 1 ORDER BY s.display_order ASC').fetchall()
     conn.close()
-    return jsonify([dict(row) for row in sliders])
-
+    return json_response([dict(row) for row in sliders])
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings_for_client():
     settings = get_all_settings()
-    return jsonify({
+    data = {
         'cafe_name': settings.get('cafe_name'),
         'slogan': settings.get('slogan'),
         'logo_file': settings.get('logo_file'),
@@ -126,8 +130,11 @@ def get_settings_for_client():
         'background_file': settings.get('background_file'),
         'background_opacity_factor': settings.get('background_opacity_factor'),
         'primary_color_start': settings.get('primary_color_start'),
-        'primary_color_end': settings.get('primary_color_end')
-    })
+        'primary_color_end': settings.get('primary_color_end'),
+        'welcome_modal_enabled': settings.get('welcome_modal_enabled'),
+        'welcome_modal_text': settings.get('welcome_modal_text')
+    }
+    return json_response(data)
 
 @app.route('/api/user/ratings', methods=['GET'])
 @token_required
@@ -136,7 +143,7 @@ def get_user_ratings(current_user_id):
     ratings_cursor = conn.execute('SELECT game_id, rating FROM user_ratings WHERE user_id = ?', (current_user_id,)).fetchall()
     conn.close()
     user_ratings = {str(row['game_id']): row['rating'] for row in ratings_cursor}
-    return jsonify(user_ratings)
+    return json_response(user_ratings)
 
 @app.route('/api/user/favorites', methods=['GET'])
 @token_required
@@ -145,7 +152,7 @@ def get_user_favorites(current_user_id):
     favorites_cursor = conn.execute('SELECT game_id FROM user_favorites WHERE user_id = ?', (current_user_id,)).fetchall()
     conn.close()
     user_favorites = [row['game_id'] for row in favorites_cursor]
-    return jsonify(user_favorites)
+    return json_response(user_favorites)
 
 @app.route('/api/user/saves', methods=['GET'])
 @token_required
@@ -160,7 +167,7 @@ def get_user_saves(current_user_id):
                 game_id = os.path.splitext(filename)[0]
                 if game_id.isdigit():
                     saved_games.append(int(game_id))
-        return jsonify(saved_games)
+        return json_response(saved_games)
     except Exception as e:
         return jsonify({'mesaj': f'Kayıtlar okunurken bir hata oluştu: {e}'}), 500
 
@@ -211,10 +218,8 @@ def download_100_save(current_user_id, game_id):
     conn = get_db_connection()
     game = conn.execute('SELECT yuzde_yuz_save_path FROM games WHERE id = ?', (game_id,)).fetchone()
     conn.close()
-
     if not game or not game['yuzde_yuz_save_path']:
         return jsonify({'mesaj': 'Bu oyun için %100 save dosyası bulunamadı.'}), 404
-    
     try:
         return send_from_directory(
             app.config['UPLOAD_FOLDER_100_SAVES'],
@@ -228,31 +233,19 @@ def download_100_save(current_user_id, game_id):
 @app.route('/admin')
 def admin_index():
     conn = get_db_connection()
-    
     game_count = conn.execute('SELECT COUNT(*) FROM games').fetchone()[0]
     category_count = conn.execute('SELECT COUNT(*) FROM categories').fetchone()[0]
     user_count = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-    stats = {
-        'game_count': game_count,
-        'category_count': category_count,
-        'user_count': user_count
-    }
-
+    stats = {'game_count': game_count, 'category_count': category_count, 'user_count': user_count}
     query = """
-    SELECT g.id, g.oyun_adi, c.name as category_name
-    FROM games g
-    LEFT JOIN categories c ON g.category_id = c.id
-    ORDER BY g.id DESC
-    LIMIT 5
+    SELECT g.id, g.oyun_adi, c.name as category_name FROM games g
+    LEFT JOIN categories c ON g.category_id = c.id ORDER BY g.id DESC LIMIT 5
     """
     recent_games = conn.execute(query).fetchall()
     conn.close()
-    
     recent_games_list = [dict(game) for game in recent_games]
-    
     return render_template('index.html', stats=stats, recent_games=recent_games_list)
 
-# --- SLIDER YÖNETİMİ ROUTE'LARI ---
 @app.route('/admin/sliders')
 def manage_sliders():
     conn = get_db_connection()
@@ -270,14 +263,12 @@ def add_slider():
         description = request.form.get('description')
         is_active = 1 if 'is_active' in request.form else 0
         display_order = request.form.get('display_order', 0)
-
         background_image = ''
         if 'background_image' in request.files:
             file = request.files['background_image']
             if file and file.filename != '':
                 background_image = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
-
         conn.execute('''
             INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -285,7 +276,6 @@ def add_slider():
         conn.commit()
         conn.close()
         return redirect(url_for('manage_sliders'))
-
     games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
     conn.close()
     return render_template('add_slider.html', games=games)
@@ -300,29 +290,22 @@ def edit_slider(slider_id):
         description = request.form.get('description')
         is_active = 1 if 'is_active' in request.form else 0
         display_order = request.form.get('display_order', 0)
-
         background_image = request.form.get('current_background_image')
         if 'background_image' in request.files:
             file = request.files['background_image']
             if file and file.filename != '':
-                # Eski resmi silmek isterseniz burada silebilirsiniz
                 if background_image:
-                    try:
-                        os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
-                    except OSError:
-                        pass
+                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
+                    except OSError: pass
                 background_image = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
-        
         conn.execute('''
-            UPDATE slider 
-            SET game_id = ?, badge_text = ?, title = ?, description = ?, background_image = ?, is_active = ?, display_order = ?
+            UPDATE slider SET game_id = ?, badge_text = ?, title = ?, description = ?, background_image = ?, is_active = ?, display_order = ?
             WHERE id = ?
         ''', (game_id, badge_text, title, description, background_image, is_active, display_order, slider_id))
         conn.commit()
         conn.close()
         return redirect(url_for('manage_sliders'))
-
     slider_data = conn.execute('SELECT * FROM slider WHERE id = ?', (slider_id,)).fetchone()
     games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
     conn.close()
@@ -331,22 +314,14 @@ def edit_slider(slider_id):
 @app.route('/admin/slider/delete/<int:slider_id>', methods=['POST'])
 def delete_slider(slider_id):
     conn = get_db_connection()
-    # İsteğe bağlı: Dosya sisteminden resmi de sil
     slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
     if slider and slider['background_image']:
-        try:
-            os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
-        except OSError:
-            pass
+        try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
+        except OSError: pass
     conn.execute('DELETE FROM slider WHERE id = ?', (slider_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('manage_sliders'))
-# --- BİTİŞ: SLIDER YÖNETİMİ ---
-
-@app.route('/admin_redirect')
-def admin_redirect():
-    return redirect(url_for('admin_index'))
 
 @app.route('/admin/games')
 def list_games():
@@ -367,21 +342,18 @@ def add_game():
     if request.method == 'POST':
         oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None;
         launch_script = request.form.get('launch_script')
-        
         cover_image_filename = ''
         if 'cover_image' in request.files:
             file = request.files['cover_image']
             if file and file.filename != '':
                 cover_image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
-        
         yuzde_yuz_save_filename = ''
         if 'yuzde_yuz_save_file' in request.files:
             file = request.files['yuzde_yuz_save_file']
             if file and file.filename != '':
                 yuzde_yuz_save_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
-
         calistirma_verisi = {}
         if calistirma_tipi == 'exe':
             calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
@@ -390,11 +362,9 @@ def add_game():
         elif calistirma_tipi == 'steam':
             calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
             launch_script = None 
-        
         sql = ''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) '''
         cursor = conn.cursor()
         cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename))
-        
         new_game_id = cursor.lastrowid
         if 'gallery_images' in request.files:
             files = request.files.getlist('gallery_images')
@@ -403,11 +373,9 @@ def add_game():
                     gallery_filename = secure_filename(file.filename)
                     file.save(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], gallery_filename))
                     conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, gallery_filename))
-        
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
-    
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     conn.close()
     return render_template('add_game.html', categories=categories)
@@ -418,28 +386,24 @@ def edit_game(game_id):
     if request.method == 'POST':
         oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None
         launch_script = request.form.get('launch_script')
-
         cover_image_filename = request.form['current_cover_image']
         if 'cover_image' in request.files:
             file = request.files['cover_image']
             if file and file.filename != '':
                 cover_image_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
-        
         yuzde_yuz_save_filename = request.form['current_yuzde_yuz_save_file']
         if 'yuzde_yuz_save_file' in request.files:
             file = request.files['yuzde_yuz_save_file']
             if file and file.filename != '':
                 yuzde_yuz_save_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
-
         images_to_delete = request.form.getlist('delete_gallery')
         if images_to_delete:
             for image_path_to_delete in images_to_delete:
                 conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (image_path_to_delete, game_id))
                 try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], image_path_to_delete))
                 except OSError as e: print(f"Dosya silinirken hata: {e}")
-        
         if 'gallery_images' in request.files:
             files = request.files.getlist('gallery_images')
             for file in files:
@@ -447,7 +411,6 @@ def edit_game(game_id):
                     gallery_filename = secure_filename(file.filename)
                     file.save(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], gallery_filename))
                     conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, gallery_filename))
-        
         calistirma_verisi = {}
         if calistirma_tipi == 'exe':
             calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
@@ -456,21 +419,16 @@ def edit_game(game_id):
         elif calistirma_tipi == 'steam':
             calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
             launch_script = None 
-        
         sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, category_id=?, launch_script=?, yuzde_yuz_save_path=? WHERE id=? '''
         conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename, game_id))
-        
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
-    
     game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     gallery_images = conn.execute('SELECT * FROM gallery_images WHERE game_id = ?', (game_id,)).fetchall()
     conn.close()
-    
     if game is None: return "Oyun bulunamadı!", 404
-    
     game_data = dict(game)
     game_data['calistirma_verisi_dict'] = json.loads(game['calistirma_verisi']) if game['calistirma_verisi'] else {}
     return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images)
@@ -489,14 +447,13 @@ def manage_categories():
     conn = get_db_connection()
     if request.method == 'POST':
         category_name = request.form['name']
-        category_icon = request.form.get('icon', '🎮') # Varsayılan emoji
+        category_icon = request.form.get('icon', '🎮')
         if category_name:
             try:
                 conn.execute('INSERT INTO categories (name, icon) VALUES (?, ?)', (category_name, category_icon))
                 conn.commit()
             except sqlite3.IntegrityError: pass
         return redirect(url_for('manage_categories'))
-    
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     conn.close()
     return render_template('manage_categories.html', categories=categories)
@@ -512,7 +469,6 @@ def edit_category(category_id):
             conn.commit()
         conn.close()
         return redirect(url_for('manage_categories'))
-
     category = conn.execute('SELECT * FROM categories WHERE id = ?', (category_id,)).fetchone()
     conn.close()
     if category is None:
@@ -541,7 +497,6 @@ def edit_user(user_id):
     if request.method == 'POST':
         new_username = request.form.get('username').strip()
         new_password = request.form.get('new_password')
-
         if new_username and len(new_username) >= 3:
             existing_user = conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone()
             if not existing_user:
@@ -549,15 +504,12 @@ def edit_user(user_id):
                 conn.commit()
             else:
                 print(f"Hata: '{new_username}' kullanıcı adı zaten alınmış.")
-
         if new_password and len(new_password) >= 5:
             password_hash = generate_password_hash(new_password)
             conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (password_hash, user_id))
             conn.commit()
-
         conn.close()
         return redirect(url_for('manage_users'))
-
     user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
     conn.close()
     if user is None: return "Kullanıcı bulunamadı!", 404
@@ -601,12 +553,10 @@ def manage_statistics():
         sort_by = 'click_count'
     if order not in ['asc', 'desc']:
         order = 'desc'
-    
     conn = get_db_connection()
     query = f"SELECT id, oyun_adi, click_count FROM games ORDER BY {sort_by} {order}"
     games = conn.execute(query).fetchall()
     conn.close()
-    
     next_order = 'desc' if order == 'asc' else 'asc'
     return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order=next_order)
 
@@ -642,46 +592,35 @@ def general_settings():
             current_settings = get_all_settings()
             logo_to_delete = current_settings.get('logo_file')
             if logo_to_delete:
-                try:
-                    os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], logo_to_delete))
-                except OSError as e:
-                    print(f"Logo silinirken hata: {e}")
+                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], logo_to_delete))
+                except OSError as e: print(f"Logo silinirken hata: {e}")
             set_setting('logo_file', '')
             return redirect(url_for('general_settings'))
-
         cafe_name = request.form['cafe_name']
         slogan = request.form['slogan']
         set_setting('cafe_name', cafe_name)
         set_setting('slogan', slogan)
-
         if 'logo_file' in request.files:
             file = request.files['logo_file']
             if file and file.filename != '':
                 current_settings = get_all_settings()
                 old_file = current_settings.get('logo_file')
                 if old_file:
-                    try: 
-                        os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], old_file))
-                    except OSError: 
-                        pass
-
+                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], old_file))
+                    except OSError: pass
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], filename))
                 set_setting('logo_file', filename)
-
         background_type = request.form['background_type']
         set_setting('background_type', background_type)
-
         set_setting('primary_color_start', request.form['primary_color_start'])
         set_setting('primary_color_end', request.form['primary_color_end'])
-
         opacity_factor = request.form.get('background_opacity_factor', '1.0')
         try:
             factor = max(0.1, min(1.0, float(opacity_factor)))
             set_setting('background_opacity_factor', f"{factor:.1f}")
         except ValueError:
             set_setting('background_opacity_factor', '1.0')
-        
         if background_type == 'custom_bg' and 'custom_background_file' in request.files:
             file = request.files['custom_background_file']
             if file and file.filename != '':
@@ -690,7 +629,6 @@ def general_settings():
                 if old_file:
                     try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
                     except OSError: pass
-
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_BG'], filename))
                 set_setting('background_file', filename)
@@ -699,7 +637,6 @@ def general_settings():
             else:
                 set_setting('background_type', 'default')
                 set_setting('background_file', '')
-        
         if background_type == 'default':
             current_settings = get_all_settings()
             old_file = current_settings.get('background_file')
@@ -707,7 +644,10 @@ def general_settings():
                 try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
                 except OSError: pass
             set_setting('background_file', '')
-
+        welcome_enabled = '1' if 'welcome_modal_enabled' in request.form else '0'
+        welcome_text = request.form.get('welcome_modal_text', '')
+        set_setting('welcome_modal_enabled', welcome_enabled)
+        set_setting('welcome_modal_text', welcome_text)
         return redirect(url_for('general_settings'))
 
     settings = get_all_settings()
@@ -719,6 +659,8 @@ def general_settings():
     settings.setdefault('background_opacity_factor', '1.0')
     settings.setdefault('primary_color_start', '#667eea')
     settings.setdefault('primary_color_end', '#764ba2')
+    settings.setdefault('welcome_modal_enabled', '1')
+    settings.setdefault('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.')
     
     return render_template('general_settings.html', settings=settings)
 

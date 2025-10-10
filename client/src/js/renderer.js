@@ -9,6 +9,8 @@ window.addEventListener('DOMContentLoaded', () => {
     let userSaves = new Set();
     let currentFilter = 'all';
     let sliderInterval;
+    let currentSlide = 0;
+    let slides = [];
 
     // === Arayüz Elementleri ===
     const gamesGrid = document.getElementById('gamesGrid');
@@ -18,6 +20,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const categoryListSidebar = document.getElementById('category-list-sidebar');
     const heroSection = document.getElementById('hero-section');
 
+    // === Karşılama Modalı Elementleri ===
+    const welcomeModal = document.getElementById('welcome-modal');
+    const welcomeLoginBtn = document.getElementById('welcome-login-btn');
+    const welcomeRegisterBtn = document.getElementById('welcome-register-btn');
+    const welcomeText = document.getElementById('welcome-text');
 
     // === Giriş Modal Elementleri ===
     const loginModal = document.getElementById('login-modal');
@@ -42,6 +49,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const favoriteButton = document.getElementById('favorite-button');
     const similarGamesSection = document.querySelector('.similar-games-section');
     const similarGamesGrid = document.getElementById('similar-games-grid');
+
+    // === Karşılama Modalı Fonksiyonları ===
+    const openWelcomeModal = () => {
+        if (welcomeModal) welcomeModal.style.display = 'flex';
+    };
+
+    const closeWelcomeModal = () => {
+        if (welcomeModal) welcomeModal.style.display = 'none';
+    };
 
     // === AYARLARI ÇEK VE UYGULA ===
     const fetchAndApplySettings = () => {
@@ -70,10 +86,20 @@ window.addEventListener('DOMContentLoaded', () => {
                     logoImageContainer.classList.add('hidden');
                     cafeLogo.classList.remove('hidden');
                 }
+
+                // Karşılama ekranı mantığı
+                if (settings.welcome_modal_enabled === '1') {
+                    if (welcomeText) {
+                        welcomeText.textContent = settings.welcome_modal_text;
+                    }
+                    if (!sessionStorage.getItem('welcomeShown')) {
+                        openWelcomeModal();
+                        sessionStorage.setItem('welcomeShown', 'true');
+                    }
+                }
             })
             .catch(error => console.error('Ayarlar çekilirken hata oluştu:', error));
     };
-
 
     const renderGames = (filter = 'all', searchTerm = '') => {
         let filtered = allGames;
@@ -279,20 +305,23 @@ window.addEventListener('DOMContentLoaded', () => {
     const updateHeroSection = () => {
         fetch(`${SERVER_URL}/api/slider`)
             .then(res => res.json())
-            .then(sliders => {
-                if (!sliders || sliders.length === 0) {
+            .then(sliderData => {
+                if (!sliderData || sliderData.length === 0) {
                     heroSection.style.display = 'none';
                     return;
                 }
-
-                heroSection.innerHTML = ''; // Önceki içeriği temizle
+    
                 heroSection.style.display = 'block';
-
-                sliders.forEach((slide, index) => {
+                heroSection.innerHTML = `
+                    <div class="slider-nav prev" id="slider-prev"><i class="fas fa-chevron-left"></i></div>
+                    <div class="slider-nav next" id="slider-next"><i class="fas fa-chevron-right"></i></div>
+                `;
+    
+                sliderData.forEach((slide, index) => {
                     const slideElement = document.createElement('div');
                     slideElement.className = 'hero-slide';
                     if (index === 0) slideElement.classList.add('active');
-
+    
                     slideElement.innerHTML = `
                         <img src="${SERVER_URL}/static/images/slider/${slide.background_image}" class="hero-bg" alt="Featured">
                         <div class="hero-overlay"></div>
@@ -306,10 +335,9 @@ window.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     `;
-                    heroSection.appendChild(slideElement);
+                    heroSection.insertBefore(slideElement, document.getElementById('slider-prev'));
                 });
-
-                // Butonlara event listener ekle
+    
                 document.querySelectorAll('.hero-btn').forEach(button => {
                     button.addEventListener('click', function() {
                         const gameId = this.dataset.gameId;
@@ -324,8 +352,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     });
                 });
                 
-                // Slider'ı başlat
-                startSlider(sliders.length);
+                startSlider();
             })
             .catch(error => {
                 console.error('Slider verisi alınırken hata:', error);
@@ -333,20 +360,53 @@ window.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    function startSlider(slideCount) {
-        if (slideCount <= 1) return;
-        let currentSlide = 0;
-        const slides = document.querySelectorAll('.hero-slide');
-
-        clearInterval(sliderInterval); 
-
-        sliderInterval = setInterval(() => {
-            slides[currentSlide].classList.remove('active');
-            currentSlide = (currentSlide + 1) % slideCount;
-            slides[currentSlide].classList.add('active');
-        }, 7000); // 7 saniyede bir geçiş
+    function showSlide(index) {
+        slides.forEach((slide, i) => {
+            slide.classList.remove('active');
+            if (i === index) {
+                slide.classList.add('active');
+            }
+        });
+        currentSlide = index;
     }
 
+    function nextSlide() {
+        if (slides.length > 0) {
+            const newIndex = (currentSlide + 1) % slides.length;
+            showSlide(newIndex);
+        }
+    }
+
+    function prevSlide() {
+        if (slides.length > 0) {
+            const newIndex = (currentSlide - 1 + slides.length) % slides.length;
+            showSlide(newIndex);
+        }
+    }
+
+    function startSlider() {
+        slides = document.querySelectorAll('.hero-slide');
+        const sliderPrevBtn = document.getElementById('slider-prev');
+        const sliderNextBtn = document.getElementById('slider-next');
+        
+        if (slides.length <= 1) {
+            if(sliderPrevBtn) sliderPrevBtn.style.display = 'none';
+            if(sliderNextBtn) sliderNextBtn.style.display = 'none';
+            return;
+        }
+
+        clearInterval(sliderInterval);
+        sliderInterval = setInterval(nextSlide, 7000);
+
+        const manualSlide = (slideFunction) => {
+            slideFunction();
+            clearInterval(sliderInterval);
+            sliderInterval = setInterval(nextSlide, 7000);
+        };
+
+        if(sliderPrevBtn) sliderPrevBtn.onclick = () => manualSlide(prevSlide);
+        if(sliderNextBtn) sliderNextBtn.onclick = () => manualSlide(nextSlide);
+    }
 
     const renderCategories = () => {
         categoryListSidebar.innerHTML = '';
@@ -487,6 +547,8 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // === EVENT LISTENERS ===
+    
     searchInput.addEventListener('input', (e) => {
         renderGames(currentFilter, e.target.value);
     });
@@ -502,28 +564,31 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    similarGamesGrid.addEventListener('click', (e) => {
-        const card = e.target.closest('.game-card.similar');
-        if(card){
-            const gameId = card.dataset.gameId;
-            const game = allGames.find(g => g.id == gameId);
-            if(game) {
-                closeGameDetail();
-                setTimeout(() => showGameDetail(game), 100);
+    if (similarGamesGrid) {
+        similarGamesGrid.addEventListener('click', (e) => {
+            const card = e.target.closest('.game-card.similar');
+            if(card){
+                const gameId = card.dataset.gameId;
+                const game = allGames.find(g => g.id == gameId);
+                if(game) {
+                    closeGameDetail();
+                    setTimeout(() => showGameDetail(game), 100);
+                }
             }
-        }
-    });
+        });
+    }
 
     document.querySelectorAll('.close-button').forEach(btn => {
         btn.addEventListener('click', () => {
             closeLoginModal();
             closeGameDetail();
+            closeWelcomeModal();
         });
     });
     
-    modalSwitchToRegister.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('register'); });
-    modalSwitchToLogin.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('login'); });
-    loginForm.addEventListener('submit', handleLogin);
+    if (modalSwitchToRegister) modalSwitchToRegister.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('register'); });
+    if (modalSwitchToLogin) modalSwitchToLogin.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); setModalMode('login'); });
+    if (loginForm) loginForm.addEventListener('submit', handleLogin);
     
     if (userRatingStars && userRatingInner) {
         userRatingStars.addEventListener('mousemove', e => {
@@ -564,7 +629,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 game.average_rating = result.average_rating;
                 game.rating_count = result.rating_count;
                 updateRatingDisplay(game);
-                console.log(`Puanınız (${rating}) başarıyla kaydedildi!`);
             } catch (error) {
                 console.error(`Puan kaydedilirken hata oluştu: ${error.message}`);
             }
@@ -597,13 +661,31 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (welcomeLoginBtn) {
+        welcomeLoginBtn.addEventListener('click', () => {
+            closeWelcomeModal();
+            openLoginModal();
+            setModalMode('login');
+        });
+    }
+
+    if (welcomeRegisterBtn) {
+        welcomeRegisterBtn.addEventListener('click', () => {
+            closeWelcomeModal();
+            openLoginModal();
+            setModalMode('register');
+        });
+    }
+
     window.addEventListener('click', (e) => {
-        if (e.target == loginModal || e.target == gameDetailModal) {
+        if (e.target == loginModal || e.target == gameDetailModal || e.target == welcomeModal) {
             closeLoginModal();
             closeGameDetail();
+            closeWelcomeModal();
         }
     });
 
+    // === BAŞLANGIÇ ÇAĞRILARI ===
     fetchAndApplySettings();
     fetchGameAndCategories();
     updateUserUI();

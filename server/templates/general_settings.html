@@ -104,6 +104,20 @@
                 </div>
                 
             </div>
+
+            <div class="section-title" style="margin-top: 30px;">Karşılama Ekranı Ayarları</div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="welcome_modal_text">Karşılama Ekranı Metni:</label>
+                    <textarea name="welcome_modal_text" id="welcome_modal_text" rows="3">{{ settings.welcome_modal_text }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="welcome_modal_enabled">Karşılama Ekranını Göster:</label>
+                    <input type="checkbox" name="welcome_modal_enabled" id="welcome_modal_enabled" 
+                           {% if settings.welcome_modal_enabled == '1' %}checked{% endif %} 
+                           style="width: 20px; height: 20px; margin-top: 10px;">
+                </div>
+            </div>
             
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
                 <i class="fas fa-save"></i>
@@ -141,66 +155,26 @@
     
     <script>
         const PRESET_THEMES = [
-            { start: '#4A90E2', end: '#2E5C8A' },
-            { start: '#56C596', end: '#2D8B5F' },
-            { start: '#FF8C42', end: '#E65525' },
-            { start: '#FF6B6B', end: '#C92A2A' },
-            { start: '#FF6B9D', end: '#C44569' },
-            { start: '#8B7FD8', end: '#6B5EBE' },
-            { start: '#FFD93D', end: '#F4A261' },
-            { start: '#4ECDC4', end: '#2A9D8F' },
-            { start: '#5B7C99', end: '#364F6B' },
-            { start: '#00F5A0', end: '#00D9F5' },
-            { start: '#B565D8', end: '#8E44AD' },
-            { start: '#667EEA', end: '#4C51BF' },
-            { start: '#3B82F6', end: '#1E40AF' },
-            { start: '#60A5FA', end: '#3B82F6' },
-            { start: '#1E3A8A', end: '#0F172A' },
-            { start: '#00D4FF', end: '#0099CC' },
-            { start: '#06B6D4', end: '#0891B2' },
-            { start: '#34D399', end: '#10B981' },
-            { start: '#10B981', end: '#047857' },
-            { start: '#84CC16', end: '#65A30D' },
-            { start: '#A3B18A', end: '#6B7B5C' },
-            { start: '#FDE047', end: '#FACC15' },
-            { start: '#F59E0B', end: '#D97706' },
-            { start: '#FB923C', end: '#EA580C' },
-            { start: '#FF7F50', end: '#FF6347' },
-            { start: '#EF4444', end: '#B91C1C' },
-            { start: '#BE123C', end: '#881337' },
-            { start: '#EC4899', end: '#BE185D' },
-            { start: '#FDA4AF', end: '#FB7185' },
-            { start: '#DDA0DD', end: '#BA55D3' },
-            { start: '#C084FC', end: '#9333EA' },
-            { start: '#A78BFA', end: '#7C3AED' },
-            { start: '#C4B5FD', end: '#A78BFA' },
-            { start: '#94A3B8', end: '#64748B' },
-            { start: '#475569', end: '#1E293B' },
-            { start: '#CBD5E1', end: '#94A3B8' },
-            { start: '#CD7F32', end: '#A0522D' },
-            { start: '#D4A574', end: '#B8860B' },
-            { start: '#92400E', end: '#451A03' },
-            { start: '#D4C5B9', end: '#A89B8C' },
-            { start: '#FF10F0', end: '#C2185B' },
-            { start: '#FFFF00', end: '#FFD700' },
-            { start: '#FF6600', end: '#FF3300' },
-            { start: '#A7C7E7', end: '#89B5D6' },
-            { start: '#B4E7CE', end: '#95D5B2' },
-            { start: '#FFB3C1', end: '#FF8FA3' },
-            { start: '#D4ADFC', end: '#C084FC' },
-            { start: '#7F1D1D', end: '#450A0A' },
-            { start: '#14532D', end: '#052E16' },
-            { start: '#581C87', end: '#3B0764' },
-            { start: '#FF6B35', end: '#F7931E' },
-            { start: '#1A5F7A', end: '#0F3D54' },
-            { start: '#667EEA', end: '#9333EA' },
-            { start: '#10B981', end: '#06B6D4' },
-            { start: '#FBBF24', end: '#F97316' },
-            { start: '#EC4899', end: '#A855F7' },
-            { start: '#00FF41', end: '#00B82E' },
-            { start: '#FF0844', end: '#CC0036' },
-            { start: '#00D9FF', end: '#0099FF' },
-            { start: '#FF006E', end: '#8338EC' }
+            { start: '#4A90E2', end: '#2E5C8A' }, { start: '#56C596', end: '#2D8B5F' }, { start: '#FF8C42', end: '#E65525' },
+            { start: '#FF6B6B', end: '#C92A2A' }, { start: '#FF6B9D', end: '#C44569' }, { start: '#8B7FD8', end: '#6B5EBE' },
+            { start: '#FFD93D', end: '#F4A261' }, { start: '#4ECDC4', end: '#2A9D8F' }, { start: '#5B7C99', end: '#364F6B' },
+            { start: '#00F5A0', end: '#00D9F5' }, { start: '#B565D8', end: '#8E44AD' }, { start: '#667EEA', end: '#4C51BF' },
+            { start: '#3B82F6', end: '#1E40AF' }, { start: '#60A5FA', end: '#3B82F6' }, { start: '#1E3A8A', end: '#0F172A' },
+            { start: '#00D4FF', end: '#0099CC' }, { start: '#06B6D4', end: '#0891B2' }, { start: '#34D399', end: '#10B981' },
+            { start: '#10B981', end: '#047857' }, { start: '#84CC16', end: '#65A30D' }, { start: '#A3B18A', end: '#6B7B5C' },
+            { start: '#FDE047', end: '#FACC15' }, { start: '#F59E0B', end: '#D97706' }, { start: '#FB923C', end: '#EA580C' },
+            { start: '#FF7F50', end: '#FF6347' }, { start: '#EF4444', end: '#B91C1C' }, { start: '#BE123C', end: '#881337' },
+            { start: '#EC4899', end: '#BE185D' }, { start: '#FDA4AF', end: '#FB7185' }, { start: '#DDA0DD', end: '#BA55D3' },
+            { start: '#C084FC', end: '#9333EA' }, { start: '#A78BFA', end: '#7C3AED' }, { start: '#C4B5FD', end: '#A78BFA' },
+            { start: '#94A3B8', end: '#64748B' }, { start: '#475569', end: '#1E293B' }, { start: '#CBD5E1', end: '#94A3B8' },
+            { start: '#CD7F32', end: '#A0522D' }, { start: '#D4A574', end: '#B8860B' }, { start: '#92400E', end: '#451A03' },
+            { start: '#D4C5B9', end: '#A89B8C' }, { start: '#FF10F0', end: '#C2185B' }, { start: '#FFFF00', end: '#FFD700' },
+            { start: '#FF6600', end: '#FF3300' }, { start: '#A7C7E7', end: '#89B5D6' }, { start: '#B4E7CE', end: '#95D5B2' },
+            { start: '#FFB3C1', end: '#FF8FA3' }, { start: '#D4ADFC', end: '#C084FC' }, { start: '#7F1D1D', end: '#450A0A' },
+            { start: '#14532D', end: '#052E16' }, { start: '#581C87', end: '#3B0764' }, { start: '#FF6B35', end: '#F7931E' },
+            { start: '#1A5F7A', end: '#0F3D54' }, { start: '#667EEA', end: '#9333EA' }, { start: '#10B981', end: '#06B6D4' },
+            { start: '#FBBF24', end: '#F97316' }, { start: '#EC4899', end: '#A855F7' }, { start: '#00FF41', end: '#00B82E' },
+            { start: '#FF0844', end: '#CC0036' }, { start: '#00D9FF', end: '#0099FF' }, { start: '#FF006E', end: '#8338EC' }
         ];
 
         function selectPreset(startColor, endColor) {

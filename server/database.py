@@ -52,7 +52,6 @@ def init_db():
         )
         ''')
         
-        # YENİ: Slider tablosu
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS slider (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,7 +147,9 @@ def init_db():
                 ('background_file', ''),
                 ('background_opacity_factor', '1.0'), 
                 ('primary_color_start', '#667eea'), 
-                ('primary_color_end', '#764ba2')
+                ('primary_color_end', '#764ba2'),
+                ('welcome_modal_enabled', '1'),
+                ('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.')
             ]
             cursor.executemany('INSERT INTO settings (key, value) VALUES (?, ?)', sample_settings)
             
@@ -165,7 +166,6 @@ def init_db():
             cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (1, 'Featured-Image-GE-1.webp'))
             cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (2, 'Counter-Strike-2-4.jpg'))
 
-        # YENİ: Slider için örnek veri
         cursor.execute("SELECT COUNT(*) FROM slider")
         if cursor.fetchone()[0] == 0:
             print("Slider tablosu boştu, örnek slider verisi ekleniyor...")
