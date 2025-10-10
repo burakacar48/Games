@@ -127,11 +127,54 @@ body {
 .slider-nav.next { right: 20px; }
 
 /* Oyun Grid */
-.content-section { padding: 0 40px 40px; }
+.content-section { padding: 40px 40px 40px 40px; }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.section-header.discover-header { flex-wrap: wrap; gap: 20px; } /* Yeni Discover/Sıralama Başlık Stili */
 .section-title { font-size: 1.8rem; font-weight: 700; }
-.view-all { color: var(--primary-start); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
-.view-all:hover { text-decoration: underline; }
+.view-all { 
+    background: rgba(255, 255, 255, 0.1); 
+    color: #fff; 
+    padding: 8px 15px; 
+    border-radius: 6px; 
+    border: 1px solid rgba(255, 255, 255, 0.2); 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: all 0.3s ease; 
+    text-decoration: none; 
+    display: inline-flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+.view-all:hover { 
+    background: var(--primary-gradient);
+    border-color: var(--primary-start);
+    transform: translateY(-1px);
+    text-decoration: none; 
+}
+
+/* Yeni Sıralama Butonları Stilleri */
+.sort-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.sort-btn {
+    padding: 8px 15px;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+.sort-btn.active, .sort-btn:hover {
+    background: var(--primary-gradient);
+    border-color: var(--primary-start);
+    color: #fff;
+}
+
 
 .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
 .game-card { background: #1a1a1a; border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.3s ease; border: 1px solid #2a2a2a; }

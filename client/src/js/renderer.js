@@ -8,6 +8,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let userFavorites = new Set();
     let userSaves = new Set();
     let currentFilter = 'all';
+    let currentSort = 'newest'; // 'newest', 'name', 'popular', 'rating'
     let sliderInterval;
     let currentSlide = 0;
     let slides = [];
@@ -17,6 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     const sectionTitle = document.getElementById('sectionTitle');
     const userActions = document.getElementById('user-actions');
+    const viewAllButton = document.querySelector('.view-all'); // NOT: Bu satır, renderGames/updateSectionTitle tarafından DOM manipülasyonu yapıldığı için güvenli değildir. Aşağıda düzeltilecek.
     const categoryListSidebar = document.getElementById('category-list-sidebar');
     const heroSection = document.getElementById('hero-section');
 
@@ -104,7 +106,35 @@ window.addEventListener('DOMContentLoaded', () => {
     const renderGames = (filter = 'all', searchTerm = '') => {
         let filtered = allGames;
 
-        if (filter !== 'all' && filter !== 'favorites' && filter !== 'recent') {
+        // 1. Sıralama ve Filtreleme Mantığı
+        if (filter === 'all' || filter === 'discover') {
+            switch (currentSort) {
+                case 'newest':
+                    filtered.sort((a, b) => b.id - a.id); // En yeni
+                    break;
+                case 'popular':
+                    filtered.sort((a, b) => b.click_count - a.click_count); // En popüler
+                    break;
+                case 'name':
+                    filtered.sort((a, b) => a.oyun_adi.localeCompare(b.oyun_adi, 'tr')); // Ada göre
+                    break;
+                case 'rating':
+                    filtered.sort((a, b) => b.average_rating - a.average_rating); // Puana göre
+                    break;
+            }
+        }
+        
+
+        // SLIDER GÖRÜNÜRLÜĞÜNÜ AYARLA (YENİ KOD BAŞLANGICI)
+        // Sadece 'all' filtresinde ve arama yapılmadığında göster.
+        if (filter === 'all' && !searchTerm) {
+            heroSection.style.display = 'block';
+        } else {
+            heroSection.style.display = 'none';
+        }
+        // SLIDER GÖRÜNÜRLÜĞÜNÜ AYARLA (YENİ KOD SONU)
+
+        if (filter !== 'all' && filter !== 'favorites' && filter !== 'recent' && filter !== 'discover') {
             filtered = allGames.filter(g => g.kategori === filter);
         } else if (filter === 'favorites') {
              if (!authToken) {
@@ -114,6 +144,15 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             filtered = allGames.filter(g => userFavorites.has(g.id));
         }
+        
+        // 2. Ana Sayfa Limitini Uygula
+        if (filter === 'all' && !searchTerm) {
+            filtered = filtered.slice(0, 24);
+            // viewAllButton.style.display = 'inline-flex'; // viewAllButton burada DOM'da her zaman mevcut değildir
+        } else if (filter !== 'discover') {
+            // viewAllButton.style.display = 'none'; // viewAllButton burada DOM'da her zaman mevcut değildir
+        }
+
 
         if (searchTerm) {
             filtered = filtered.filter(g => g.oyun_adi.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -139,7 +178,10 @@ window.addEventListener('DOMContentLoaded', () => {
                 gamesGrid.innerHTML += gameCard;
             });
         } else {
-            gamesGrid.innerHTML = '<p style="color: #aaa; grid-column: 1 / -1; text-align: center;">Bu kategoride oyun bulunamadı.</p>';
+            let message = filter === 'favorites' ? 'Henüz favori oyununuz bulunmuyor.' :
+                          filter === 'recent' ? 'Son oynanan oyun bulunmuyor.' :
+                          'Bu filtreye uygun oyun bulunamadı.';
+            gamesGrid.innerHTML = `<p style="color: #aaa; grid-column: 1 / -1; text-align: center;">${message}</p>`;
         }
         updateSectionTitle(filter);
     };
@@ -285,19 +327,53 @@ window.addEventListener('DOMContentLoaded', () => {
             'all': 'Tüm Oyunlar',
             'favorites': 'Favori Oyunlarım',
             'recent': 'Son Oynanan Oyunlar',
+            'discover': 'Tüm Oyunları Keşfet'
         };
-        sectionTitle.textContent = titles[filter] || `${filter} Oyunları`;
+        
+        // Sıralama Butonlarını Ekle/Kaldır
+        const sectionHeader = document.querySelector('.section-header');
+        if (filter === 'discover') {
+            // viewAllButton.style.display = 'none'; // DOM'da yeniden yaratıldığı için gereksiz
+            sectionHeader.classList.add('discover-header');
+            sectionHeader.innerHTML = `
+                <h2 class="section-title">Tüm Oyunları Keşfet</h2>
+                <div class="sort-actions">
+                    <button class="sort-btn ${currentSort === 'newest' ? 'active' : ''}" data-sort="newest">En Yeni</button>
+                    <button class="sort-btn ${currentSort === 'popular' ? 'active' : ''}" data-sort="popular">Popüler</button>
+                    <button class="sort-btn ${currentSort === 'name' ? 'active' : ''}" data-sort="name">A-Z</button>
+                    <button class="sort-btn ${currentSort === 'rating' ? 'active' : ''}" data-sort="rating">En Yüksek Puan</button>
+                </div>
+            `;
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelector('.sort-btn.active')?.classList.remove('active');
+                    this.classList.add('active');
+                    currentSort = this.dataset.sort;
+                    renderGames('discover', searchInput.value);
+                });
+            });
+        } else {
+            sectionHeader.classList.remove('discover-header');
+            sectionHeader.innerHTML = `<h2 class="section-title" id="sectionTitle"></h2><span class="view-all">Tümünü Gör →</span>`;
+            document.getElementById('sectionTitle').textContent = titles[filter] || `${filter} Oyunları`;
+            // View all listener'ı tekrar ekle (dom yenilendiği için)
+            addViewAllListener();
+        }
     };
 
     const fetchGameAndCategories = () => {
+        // Tüm oyunları çek
+        const gamesUrl = `${SERVER_URL}/api/games`;
+        
         Promise.all([
-            fetch(`${SERVER_URL}/api/games`).then(res => res.json()),
+            fetch(gamesUrl).then(res => res.json()),
             fetch(`${SERVER_URL}/api/categories`).then(res => res.json())
         ]).then(([games, categories]) => {
-            allGames = games;
+            allGames = games.map(g => ({ ...g, id: Number(g.id) })); // ID'yi sayıya dönüştür
             allCategories = categories;
             renderCategories();
-            renderGames();
+            addViewAllListener();
+            renderGames(currentFilter);
             updateHeroSection();
         }).catch(error => console.error('Veri çekme hatası:', error));
     };
@@ -427,9 +503,34 @@ window.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.nav-item.active').forEach(i => i.classList.remove('active'));
                 this.classList.add('active');
                 currentFilter = this.dataset.category;
+                // Sıralamayı ve aramayı sıfırla/hazırla
+                if (currentFilter === 'all' || currentFilter === 'discover') {
+                    currentSort = 'newest';
+                    searchInput.value = '';
+                }
                 renderGames(currentFilter, searchInput.value);
             });
         });
+    };
+    
+    const addViewAllListener = () => {
+        const currentViewAllButton = document.querySelector('.view-all'); // Yeni butonu her seferinde bul
+        
+        if (currentViewAllButton) {
+            currentViewAllButton.addEventListener('click', function() {
+                // Discover sayfasına geçiş
+                currentFilter = 'discover';
+                currentSort = 'newest'; // Varsayılan sıralamayı en yeni yap
+                searchInput.value = ''; // Arama kutusunu temizle
+                
+                // Sidebar'da 'Ana Sayfa' aktifliğini koru (veya kaldır)
+                document.querySelectorAll('.nav-item.active').forEach(i => i.classList.remove('active'));
+                const allNavItem = document.querySelector('.nav-item[data-category="all"]');
+                if(allNavItem) allNavItem.classList.add('active'); // 'all' filtresini koru ama discover içeriğini yükle
+                
+                renderGames(currentFilter, ''); 
+            });
+        }
     };
 
     const updateUserUI = () => {

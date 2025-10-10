@@ -93,7 +93,16 @@ def login():
 @app.route('/api/games', methods=['GET'])
 def get_games():
     conn = get_db_connection()
-    games_cursor = conn.execute('SELECT g.*, c.name as kategori FROM games g LEFT JOIN categories c ON g.category_id = c.id ORDER BY g.oyun_adi ASC').fetchall()
+    limit = request.args.get('limit', type=int)
+    
+    query = 'SELECT g.*, c.name as kategori FROM games g LEFT JOIN categories c ON g.category_id = c.id '
+    if limit:
+        query += ' ORDER BY g.id DESC LIMIT ?'
+        games_cursor = conn.execute(query, (limit,)).fetchall()
+    else:
+        query += ' ORDER BY g.oyun_adi ASC'
+        games_cursor = conn.execute(query).fetchall()
+        
     games_list = []
     for game in games_cursor:
         game_dict = dict(game)
