@@ -8,6 +8,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let userFavorites = new Set();
     let userSaves = new Set();
     let currentFilter = 'all';
+    let sliderInterval;
 
     // === Arayüz Elementleri ===
     const gamesGrid = document.getElementById('gamesGrid');
@@ -15,7 +16,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const sectionTitle = document.getElementById('sectionTitle');
     const userActions = document.getElementById('user-actions');
     const categoryListSidebar = document.getElementById('category-list-sidebar');
-    const heroSection = document.querySelector('.hero-section');
+    const heroSection = document.getElementById('hero-section');
 
 
     // === Giriş Modal Elementleri ===
@@ -47,11 +48,7 @@ window.addEventListener('DOMContentLoaded', () => {
         fetch(`${SERVER_URL}/api/settings`)
             .then(res => res.json())
             .then(settings => {
-                // Hata ayıklama kodları, isterseniz kalabilir veya silebilirsiniz
                 console.log('Ayarlar sunucudan alındı:', settings);
-                console.log('Gelen logo_file değeri:', settings.logo_file);
-                console.log('settings.logo_file kontrolünün sonucu (true olmalı):', !!settings.logo_file);
-
                 const root = document.documentElement;
                 if (settings.primary_color_start && settings.primary_color_end) {
                     root.style.setProperty('--primary-start', settings.primary_color_start);
@@ -62,31 +59,22 @@ window.addEventListener('DOMContentLoaded', () => {
                 const cafeLogo = document.getElementById('cafe-logo');
                 const cafeTagline = document.getElementById('cafe-tagline');
 
-                // Sloganı her zaman güncelle
-                if (cafeTagline) {
-                    cafeTagline.innerText = settings.slogan || '';
-                }
+                if (cafeTagline) cafeTagline.innerText = settings.slogan || '';
 
                 if (settings.logo_file) {
-                    // Logo varsa: Resmi göster, SADECE kafe adını gizle
                     logoImageContainer.innerHTML = `<img src="${SERVER_URL}/static/images/logos/${settings.logo_file}" alt="Kafe Logosu">`;
                     logoImageContainer.classList.remove('hidden');
                     cafeLogo.classList.add('hidden');
                 } else {
-                    // Logo yoksa: Kafe adını göster, resmi gizle
-                    if (cafeLogo) {
-                        cafeLogo.innerText = settings.cafe_name || 'Kafe Adı';
-                    }
+                    if (cafeLogo) cafeLogo.innerText = settings.cafe_name || 'Kafe Adı';
                     logoImageContainer.classList.add('hidden');
                     cafeLogo.classList.remove('hidden');
                 }
-
             })
             .catch(error => console.error('Ayarlar çekilirken hata oluştu:', error));
     };
 
 
-    // Oyunları ana grid'de render eden fonksiyon
     const renderGames = (filter = 'all', searchTerm = '') => {
         let filtered = allGames;
 
@@ -130,8 +118,6 @@ window.addEventListener('DOMContentLoaded', () => {
         updateSectionTitle(filter);
     };
     
-    // === OYUN DETAY FONKSİYONLARI ===
-
     const showGameDetail = (game) => {
         detailTitle.textContent = game.oyun_adi;
         detailDescription.textContent = game.aciklama || "Açıklama bulunmuyor.";
@@ -268,7 +254,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // === Diğer Fonksiyonlar ===
     const updateSectionTitle = (filter) => {
         const titles = {
             'all': 'Tüm Oyunlar',
@@ -292,31 +277,76 @@ window.addEventListener('DOMContentLoaded', () => {
     };
     
     const updateHeroSection = () => {
-        if (allGames.length === 0) return;
-        const popularGame = allGames.sort((a, b) => b.click_count - a.click_count)[0];
-        
-        const heroTitle = heroSection.querySelector('.hero-title');
-        const heroDescription = heroSection.querySelector('.hero-description');
-        const heroBg = heroSection.querySelector('.hero-bg');
-        const heroPlayButton = heroSection.querySelector('.hero-btn.primary');
-        const heroDetailButton = heroSection.querySelector('.hero-btn.secondary');
+        fetch(`${SERVER_URL}/api/slider`)
+            .then(res => res.json())
+            .then(sliders => {
+                if (!sliders || sliders.length === 0) {
+                    heroSection.style.display = 'none';
+                    return;
+                }
 
-        heroTitle.textContent = popularGame.oyun_adi;
-        heroDescription.textContent = popularGame.aciklama;
-        const bgImageUrl = (popularGame.galeri && popularGame.galeri.length > 0) ?
-            `${SERVER_URL}/static/images/gallery/${popularGame.galeri[0]}` :
-            `${SERVER_URL}/static/images/covers/${popularGame.cover_image}`;
-        heroBg.src = bgImageUrl;
-        
-        heroPlayButton.onclick = () => {
-             const game = allGames.find(g => g.id == popularGame.id);
-             if (game) syncAndLaunch(game);
-        };
-        heroDetailButton.onclick = () => {
-             const game = allGames.find(g => g.id == popularGame.id);
-             if (game) showGameDetail(game);
-        };
+                heroSection.innerHTML = ''; // Önceki içeriği temizle
+                heroSection.style.display = 'block';
+
+                sliders.forEach((slide, index) => {
+                    const slideElement = document.createElement('div');
+                    slideElement.className = 'hero-slide';
+                    if (index === 0) slideElement.classList.add('active');
+
+                    slideElement.innerHTML = `
+                        <img src="${SERVER_URL}/static/images/slider/${slide.background_image}" class="hero-bg" alt="Featured">
+                        <div class="hero-overlay"></div>
+                        <div class="hero-content">
+                            <div class="hero-badge">${slide.badge_text}</div>
+                            <h1 class="hero-title">${slide.title}</h1>
+                            <p class="hero-description">${slide.description}</p>
+                            <div class="hero-actions">
+                                <button class="hero-btn primary" data-game-id="${slide.game_id}">▶ Şimdi Oyna</button>
+                                <button class="hero-btn secondary" data-game-id="${slide.game_id}">ℹ️ Detaylar</button>
+                            </div>
+                        </div>
+                    `;
+                    heroSection.appendChild(slideElement);
+                });
+
+                // Butonlara event listener ekle
+                document.querySelectorAll('.hero-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const gameId = this.dataset.gameId;
+                        const game = allGames.find(g => g.id == gameId);
+                        if (game) {
+                            if (this.classList.contains('primary')) {
+                                syncAndLaunch(game);
+                            } else {
+                                showGameDetail(game);
+                            }
+                        }
+                    });
+                });
+                
+                // Slider'ı başlat
+                startSlider(sliders.length);
+            })
+            .catch(error => {
+                console.error('Slider verisi alınırken hata:', error);
+                heroSection.style.display = 'none';
+            });
     };
+
+    function startSlider(slideCount) {
+        if (slideCount <= 1) return;
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.hero-slide');
+
+        clearInterval(sliderInterval); 
+
+        sliderInterval = setInterval(() => {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slideCount;
+            slides[currentSlide].classList.add('active');
+        }, 7000); // 7 saniyede bir geçiş
+    }
+
 
     const renderCategories = () => {
         categoryListSidebar.innerHTML = '';
@@ -324,9 +354,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const navItem = document.createElement('div');
             navItem.className = 'nav-item';
             navItem.dataset.category = category.name;
-            
             const icon = category.icon || '🎮';
-
             navItem.innerHTML = `<span class="nav-icon">${icon}</span> ${category.name}`;
             categoryListSidebar.appendChild(navItem);
         });
@@ -459,7 +487,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // === OLAY DİNLEYİCİLERİ ===
     searchInput.addEventListener('input', (e) => {
         renderGames(currentFilter, e.target.value);
     });
@@ -577,7 +604,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Başlangıç
     fetchAndApplySettings();
     fetchGameAndCategories();
     updateUserUI();

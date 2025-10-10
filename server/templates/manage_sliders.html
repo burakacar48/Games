@@ -1,0 +1,57 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Slider Yönetimi{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Slider Yönetimi</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('add_slider') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                Yeni Slider Ekle
+            </a>
+        </div>
+    </div>
+    
+    <div class="games-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sıra</th>
+                    <th>Başlık</th>
+                    <th>İlişkili Oyun</th>
+                    <th style="text-align: center;">Aktif Mi?</th>
+                    <th style="width: 120px;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for slider in sliders %}
+                <tr>
+                    <td>{{ slider.display_order }}</td>
+                    <td class="game-name">{{ slider.title }}</td>
+                    <td>{{ slider.oyun_adi or 'N/A' }}</td>
+                    <td style="text-align: center;">
+                        {% if slider.is_active %}
+                            <span style="color: #34d399;">Evet</span>
+                        {% else %}
+                            <span style="color: #f87171;">Hayır</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <a href="{{ url_for('edit_slider', slider_id=slider.id) }}" class="btn-icon btn-edit" title="Düzenle"><i class="fas fa-edit"></i></a>
+                            <form action="{{ url_for('delete_slider', slider_id=slider.id) }}" method="POST" class="actions-form">
+                                <button type="submit" class="btn-icon btn-delete" onclick="return confirm('Bu slider\'ı silmek istediğinize emin misiniz?');" title="Sil"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px; color: #94a3b8;">Henüz hiç slider eklenmemiş.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

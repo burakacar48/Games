@@ -1,0 +1,117 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Yeni Slider Ekle{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Yeni Slider Ekle</h1>
+        <a href="{{ url_for('manage_sliders') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i>
+            Geri Dön
+        </a>
+    </div>
+
+    <div class="form-container">
+        <form method="POST" enctype="multipart/form-data" id="slider-form">
+            <div class="section-title">Slider İçeriği</div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label for="game_search_input">Öne Çıkarılacak Oyun:</label>
+                    <div class="search-select-container">
+                        <input type="text" id="game_search_input" placeholder="Oyun adını yazarak ara..." autocomplete="off">
+                        <input type="hidden" name="game_id" id="game_id_hidden">
+                        <div id="game_search_results" class="search-select-results"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="badge_text">Rozet:</label>
+                    <select name="badge_text" id="badge_text">
+                        <option value="🔥 POPÜLER">🔥 POPÜLER</option>
+                        <option value="✨ YENİ OYUN">✨ YENİ OYUN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="title">Başlık:</label>
+                    <input type="text" name="title" id="title" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="description">Açıklama:</label>
+                    <textarea name="description" id="description" rows="3"></textarea>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="background_image_input">Arkaplan Resmi (Önerilen: 1920x1080):</label>
+                    <div class="custom-file-input-wrapper">
+                        <input type="file" name="background_image" id="background_image_input" class="file-input" accept="image/jpeg, image/png, image/webp" required>
+                        <label for="background_image_input" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosya Seç...</label>
+                        <span class="file-name" id="background_image_name">Dosya seçilmedi</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="display_order">Gösterim Sırası:</label>
+                    <input type="number" name="display_order" id="display_order" value="0">
+                </div>
+                 <div class="form-group">
+                    <label for="is_active">Aktif Mi?</label>
+                    <input type="checkbox" name="is_active" id="is_active" checked style="width: 20px; height: 20px;">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                <i class="fas fa-plus"></i>
+                Slider Ekle
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const games = [
+            {% for game in games %}
+                { id: {{ game.id }}, name: {{ game.oyun_adi|tojson }} },
+            {% endfor %}
+        ];
+
+        const gameSearchInput = document.getElementById('game_search_input');
+        const gameIdHidden = document.getElementById('game_id_hidden');
+        const searchResults = document.getElementById('game_search_results');
+
+        gameSearchInput.addEventListener('input', () => {
+            const searchTerm = gameSearchInput.value.toLowerCase();
+            searchResults.innerHTML = '';
+            if (searchTerm.length === 0) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            const filteredGames = games.filter(game => game.name.toLowerCase().includes(searchTerm));
+            
+            if (filteredGames.length > 0) {
+                filteredGames.forEach(game => {
+                    const item = document.createElement('div');
+                    item.textContent = game.name;
+                    item.dataset.id = game.id;
+                    item.addEventListener('click', () => {
+                        gameSearchInput.value = game.name;
+                        gameIdHidden.value = game.id;
+                        searchResults.style.display = 'none';
+                    });
+                    searchResults.appendChild(item);
+                });
+                searchResults.style.display = 'block';
+            } else {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-select-container')) {
+                searchResults.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('background_image_input').addEventListener('change', (event) => {
+            const fileNameSpan = document.getElementById('background_image_name');
+            fileNameSpan.textContent = event.target.files.length > 0 ? event.target.files[0].name : 'Dosya seçilmedi';
+        });
+    </script>
+{% endblock %}

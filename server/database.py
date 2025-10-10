@@ -22,7 +22,6 @@ def init_db():
         )
         ''')
 
-        # GÜNCELLENDİ: 'categories' tablosuna 'icon' alanı eklendi
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +30,6 @@ def init_db():
         )
         ''')
 
-        # GÜNCELLENDİ: 'games' tablosuna 'yuzde_yuz_save_path' alanı eklendi
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,6 +52,19 @@ def init_db():
         )
         ''')
         
+        # YENİ: Slider tablosu
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS slider (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER,
+            badge_text TEXT,
+            title TEXT,
+            description TEXT,
+            background_image TEXT,
+            FOREIGN KEY (game_id) REFERENCES games (id)
+        )
+        ''')
+
         # Mevcut veritabanları için eksik sütunları ekleme
         try:
             cursor.execute('ALTER TABLE games ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0')
@@ -73,7 +84,6 @@ def init_db():
         except:
             pass
 
-        # YENİ: Mevcut veritabanları için 'icon' sütununu ekleme
         try:
             cursor.execute('ALTER TABLE categories ADD COLUMN icon TEXT')
             print("Mevcut 'categories' tablosu 'icon' kolonu eklenerek güncellendi.")
@@ -110,7 +120,6 @@ def init_db():
         )
         ''')
         
-        # Örnek veri ekleme blokları...
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             password_hash = generate_password_hash('12345')
@@ -120,7 +129,6 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM categories")
         if cursor.fetchone()[0] == 0:
             print("Tablo boştu, örnek kategoriler ekleniyor...")
-            # GÜNCELLENDİ: Örnek kategorilere ikonlar eklendi
             sample_categories = [
                 ('FPS', '🎯'), 
                 ('RPG', '📜'), 
@@ -156,6 +164,16 @@ def init_db():
             print("Örnek galeri görselleri ekleniyor...")
             cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (1, 'Featured-Image-GE-1.webp'))
             cursor.execute("INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)", (2, 'Counter-Strike-2-4.jpg'))
+
+        # YENİ: Slider için örnek veri
+        cursor.execute("SELECT COUNT(*) FROM slider")
+        if cursor.fetchone()[0] == 0:
+            print("Slider tablosu boştu, örnek slider verisi ekleniyor...")
+            cursor.execute('''
+                INSERT INTO slider (game_id, badge_text, title, description, background_image) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (2, '🔥 POPÜLER', 'Counter-Strike 2', 'CS tarihinde yeni bir dönem başlıyor. Karşınızda Counter-Strike 2.', 'Counter-Strike-2-4.jpg'))
+
 
         conn.commit()
         conn.close()

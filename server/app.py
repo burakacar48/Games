@@ -17,9 +17,10 @@ app.config['SAVE_FOLDER'] = os.path.join(os.getcwd(), 'user_saves')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER_COVERS'] = os.path.join(BASE_DIR, 'static/images/covers')
 app.config['UPLOAD_FOLDER_GALLERY'] = os.path.join(BASE_DIR, 'static/images/gallery')
+app.config['UPLOAD_FOLDER_SLIDER'] = os.path.join(BASE_DIR, 'static/images/slider')
 app.config['UPLOAD_FOLDER_BG'] = os.path.join(BASE_DIR, 'static/images/backgrounds')
 app.config['UPLOAD_FOLDER_100_SAVES'] = os.path.join(BASE_DIR, 'yuzde_yuz_saves')
-app.config['UPLOAD_FOLDER_LOGOS'] = os.path.join(BASE_DIR, 'static/images/logos') # YENİ
+app.config['UPLOAD_FOLDER_LOGOS'] = os.path.join(BASE_DIR, 'static/images/logos')
 
 DATABASE = 'kafe.db'
 
@@ -106,13 +107,21 @@ def get_categories():
     categories_list = [{'name': row['name'], 'icon': row['icon']} for row in categories_cursor]
     return jsonify(categories_list)
 
+@app.route('/api/slider', methods=['GET'])
+def get_slider_data():
+    conn = get_db_connection()
+    sliders = conn.execute('SELECT * FROM slider WHERE is_active = 1 ORDER BY display_order ASC').fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in sliders])
+
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings_for_client():
     settings = get_all_settings()
     return jsonify({
         'cafe_name': settings.get('cafe_name'),
         'slogan': settings.get('slogan'),
-        'logo_file': settings.get('logo_file'), # GÜNCELLENDİ
+        'logo_file': settings.get('logo_file'),
         'background_type': settings.get('background_type'),
         'background_file': settings.get('background_file'),
         'background_opacity_factor': settings.get('background_opacity_factor'),
@@ -242,6 +251,98 @@ def admin_index():
     recent_games_list = [dict(game) for game in recent_games]
     
     return render_template('index.html', stats=stats, recent_games=recent_games_list)
+
+# --- SLIDER YÖNETİMİ ROUTE'LARI ---
+@app.route('/admin/sliders')
+def manage_sliders():
+    conn = get_db_connection()
+    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id ORDER BY s.display_order ASC').fetchall()
+    conn.close()
+    return render_template('manage_sliders.html', sliders=sliders)
+
+@app.route('/admin/slider/add', methods=['GET', 'POST'])
+def add_slider():
+    conn = get_db_connection()
+    if request.method == 'POST':
+        game_id = request.form.get('game_id') or None
+        badge_text = request.form.get('badge_text')
+        title = request.form.get('title')
+        description = request.form.get('description')
+        is_active = 1 if 'is_active' in request.form else 0
+        display_order = request.form.get('display_order', 0)
+
+        background_image = ''
+        if 'background_image' in request.files:
+            file = request.files['background_image']
+            if file and file.filename != '':
+                background_image = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
+
+        conn.execute('''
+            INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (game_id, badge_text, title, description, background_image, is_active, display_order))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('manage_sliders'))
+
+    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
+    conn.close()
+    return render_template('add_slider.html', games=games)
+
+@app.route('/admin/slider/edit/<int:slider_id>', methods=['GET', 'POST'])
+def edit_slider(slider_id):
+    conn = get_db_connection()
+    if request.method == 'POST':
+        game_id = request.form.get('game_id') or None
+        badge_text = request.form.get('badge_text')
+        title = request.form.get('title')
+        description = request.form.get('description')
+        is_active = 1 if 'is_active' in request.form else 0
+        display_order = request.form.get('display_order', 0)
+
+        background_image = request.form.get('current_background_image')
+        if 'background_image' in request.files:
+            file = request.files['background_image']
+            if file and file.filename != '':
+                # Eski resmi silmek isterseniz burada silebilirsiniz
+                if background_image:
+                    try:
+                        os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
+                    except OSError:
+                        pass
+                background_image = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
+        
+        conn.execute('''
+            UPDATE slider 
+            SET game_id = ?, badge_text = ?, title = ?, description = ?, background_image = ?, is_active = ?, display_order = ?
+            WHERE id = ?
+        ''', (game_id, badge_text, title, description, background_image, is_active, display_order, slider_id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('manage_sliders'))
+
+    slider_data = conn.execute('SELECT * FROM slider WHERE id = ?', (slider_id,)).fetchone()
+    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
+    conn.close()
+    return render_template('edit_slider.html', slider=slider_data, games=games)
+
+@app.route('/admin/slider/delete/<int:slider_id>', methods=['POST'])
+def delete_slider(slider_id):
+    conn = get_db_connection()
+    # İsteğe bağlı: Dosya sisteminden resmi de sil
+    slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
+    if slider and slider['background_image']:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
+        except OSError:
+            pass
+    conn.execute('DELETE FROM slider WHERE id = ?', (slider_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('manage_sliders'))
+# --- BİTİŞ: SLIDER YÖNETİMİ ---
 
 @app.route('/admin_redirect')
 def admin_redirect():
@@ -537,7 +638,6 @@ def license_management():
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def general_settings():
     if request.method == 'POST':
-        # --- Logo Silme ---
         if 'delete_logo' in request.form:
             current_settings = get_all_settings()
             logo_to_delete = current_settings.get('logo_file')
@@ -549,13 +649,11 @@ def general_settings():
             set_setting('logo_file', '')
             return redirect(url_for('general_settings'))
 
-        # --- Ayarları Güncelleme ---
         cafe_name = request.form['cafe_name']
         slogan = request.form['slogan']
         set_setting('cafe_name', cafe_name)
         set_setting('slogan', slogan)
 
-        # --- Logo Yükleme ---
         if 'logo_file' in request.files:
             file = request.files['logo_file']
             if file and file.filename != '':
@@ -571,7 +669,6 @@ def general_settings():
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], filename))
                 set_setting('logo_file', filename)
 
-        # --- Arkaplan Ayarları ---
         background_type = request.form['background_type']
         set_setting('background_type', background_type)
 
@@ -616,7 +713,7 @@ def general_settings():
     settings = get_all_settings()
     settings.setdefault('cafe_name', 'Zenka Internet Cafe')
     settings.setdefault('slogan', 'Hazırsan, oyun başlasın.')
-    settings.setdefault('logo_file', '') # GÜNCELLENDİ
+    settings.setdefault('logo_file', '')
     settings.setdefault('background_type', 'default')
     settings.setdefault('background_file', '')
     settings.setdefault('background_opacity_factor', '1.0')
@@ -628,7 +725,7 @@ def general_settings():
 if __name__ == '__main__':
     init_db() 
     
-    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG', 'UPLOAD_FOLDER_100_SAVES', 'UPLOAD_FOLDER_LOGOS']: # GÜNCELLENDİ
+    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG', 'UPLOAD_FOLDER_100_SAVES', 'UPLOAD_FOLDER_LOGOS', 'UPLOAD_FOLDER_SLIDER']:
         folder_path = app.config.get(folder_key)
         if folder_path and not os.path.exists(folder_path):
             os.makedirs(folder_path)
