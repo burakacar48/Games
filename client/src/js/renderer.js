@@ -47,11 +47,40 @@ window.addEventListener('DOMContentLoaded', () => {
         fetch(`${SERVER_URL}/api/settings`)
             .then(res => res.json())
             .then(settings => {
+                // Hata ayıklama kodları, isterseniz kalabilir veya silebilirsiniz
+                console.log('Ayarlar sunucudan alındı:', settings);
+                console.log('Gelen logo_file değeri:', settings.logo_file);
+                console.log('settings.logo_file kontrolünün sonucu (true olmalı):', !!settings.logo_file);
+
                 const root = document.documentElement;
                 if (settings.primary_color_start && settings.primary_color_end) {
                     root.style.setProperty('--primary-start', settings.primary_color_start);
                     root.style.setProperty('--primary-end', settings.primary_color_end);
                 }
+
+                const logoImageContainer = document.getElementById('logo-image-container');
+                const cafeLogo = document.getElementById('cafe-logo');
+                const cafeTagline = document.getElementById('cafe-tagline');
+
+                // Sloganı her zaman güncelle
+                if (cafeTagline) {
+                    cafeTagline.innerText = settings.slogan || '';
+                }
+
+                if (settings.logo_file) {
+                    // Logo varsa: Resmi göster, SADECE kafe adını gizle
+                    logoImageContainer.innerHTML = `<img src="${SERVER_URL}/static/images/logos/${settings.logo_file}" alt="Kafe Logosu">`;
+                    logoImageContainer.classList.remove('hidden');
+                    cafeLogo.classList.add('hidden');
+                } else {
+                    // Logo yoksa: Kafe adını göster, resmi gizle
+                    if (cafeLogo) {
+                        cafeLogo.innerText = settings.cafe_name || 'Kafe Adı';
+                    }
+                    logoImageContainer.classList.add('hidden');
+                    cafeLogo.classList.remove('hidden');
+                }
+
             })
             .catch(error => console.error('Ayarlar çekilirken hata oluştu:', error));
     };

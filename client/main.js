@@ -26,6 +26,12 @@ function createWindow() {
       preload: path.join(__dirname, 'src/preload.js'),
     }
   });
+
+  // Önbelleği temizle (YENİ EKLENDİ)
+  win.webContents.session.clearCache().then(() => {
+    console.log('Önbellek temizlendi.');
+  });
+
   win.loadFile('src/index.html');
   win.maximize();
 }

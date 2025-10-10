@@ -217,3 +217,20 @@ body {
 .similar-games-section .games-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
 .game-card.similar .game-image-wrapper { height: 200px; }
 .game-card.similar .game-title { font-size: 0.9rem; }
+
+/* Logo Resim Stilleri */
+#logo-image-container {
+    padding: 10px 0; /* logonun üst ve alt boşluğunu ayarlar */
+    text-align: center;
+}
+
+#logo-image-container img {
+    max-height: 150px; /* Logo yüksekliği sınırı */
+    max-width: 90%; /* Kenar boşluklarını hesaba katarak genişlik */
+    height: auto;
+    width: auto;
+}
+
+.hidden {
+    display: none !important;
+}

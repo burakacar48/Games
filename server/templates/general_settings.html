@@ -13,11 +13,31 @@
             <div class="section-title">Marka Bilgileri</div>
             <div class="form-grid">
                 <div class="form-group full-width">
-                    <label for="cafe_name">Kafe Adı:</label>
+                    <label>Kafe Logosu</label>
+                    {% if settings.logo_file %}
+                        <div style="margin-bottom: 15px; background: #0f0f1f; padding: 15px; border-radius: 8px; text-align: left; border: 1px solid rgba(220, 38, 38, 0.2);">
+                            <img src="{{ url_for('static', filename='images/logos/' + settings.logo_file) }}" alt="Mevcut Logo" style="max-height: 150px; max-width: 250px; border-radius: 4px; display: block; margin-bottom: 15px;">
+                            <button type="submit" name="delete_logo" value="1" class="btn btn-secondary" style="padding: 8px 12px; font-size: 12px;" onclick="return confirm('Logoyu silmek istediğinizden emin misiniz?');">
+                                <i class="fas fa-trash"></i> Logoyu Sil
+                            </button>
+                        </div>
+                        <p class="file-prompt">Logoyu değiştirmek için yeni bir dosya seçin:</p>
+                    {% else %}
+                        <p class="file-prompt">Lütfen bir logo seçin (isteğe bağlı). Logo yoksa kafe adı gösterilir.</p>
+                    {% endif %}
+                    <div class="custom-file-input-wrapper">
+                        <input type="file" name="logo_file" id="logo_file_input" class="file-input" accept="image/png, image/jpeg, image/webp, image/svg+xml">
+                        <label for="logo_file_input" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosya Seç...</label>
+                        <span class="file-name" id="logo_file_name">Dosya seçilmedi</span>
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="cafe_name">Kafe Adı (Logo olmadığında gösterilir):</label>
                     <input type="text" id="cafe_name" name="cafe_name" value="{{ settings.cafe_name }}" required>
                 </div>
                 <div class="form-group full-width">
-                    <label for="slogan">Slogan:</label>
+                    <label for="slogan">Slogan (Logo olmadığında gösterilir):</label>
                     <input type="text" id="slogan" name="slogan" value="{{ settings.slogan }}">
                 </div>
             </div>
@@ -205,7 +225,6 @@
         function toggleBackgroundUpload() {
             const type = document.getElementById('background_type').value;
             const fields = document.getElementById('custom_bg_fields');
-            // Yeni CSS'e uygun olarak hidden classı yerine display style kullanıldı.
             fields.style.display = (type === 'custom_bg') ? 'block' : 'none'; 
         }
         
@@ -215,12 +234,7 @@
                 if (event.target.files && event.target.files.length > 0) {
                     fileNameSpan.textContent = event.target.files[0].name;
                 } else {
-                    const currentFileName = document.querySelector('input[name="current_background_file"]')?.value;
-                    if (currentFileName) {
-                         fileNameSpan.textContent = `Mevcut: ${currentFileName}`;
-                    } else {
-                         fileNameSpan.textContent = 'Dosya seçilmedi';
-                    }
+                    fileNameSpan.textContent = 'Dosya seçilmedi';
                 }
             });
         }
@@ -229,6 +243,7 @@
             renderPresets();
             toggleBackgroundUpload();
             handleFileLabelUpdate('custom_background_file_input', 'custom_background_file_name');
+            handleFileLabelUpdate('logo_file_input', 'logo_file_name');
         });
     </script>
 {% endblock %}

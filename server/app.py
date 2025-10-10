@@ -17,8 +17,9 @@ app.config['SAVE_FOLDER'] = os.path.join(os.getcwd(), 'user_saves')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER_COVERS'] = os.path.join(BASE_DIR, 'static/images/covers')
 app.config['UPLOAD_FOLDER_GALLERY'] = os.path.join(BASE_DIR, 'static/images/gallery')
-app.config['UPLOAD_FOLDER_BG'] = os.path.join(BASE_DIR, 'static/images/backgrounds') 
+app.config['UPLOAD_FOLDER_BG'] = os.path.join(BASE_DIR, 'static/images/backgrounds')
 app.config['UPLOAD_FOLDER_100_SAVES'] = os.path.join(BASE_DIR, 'yuzde_yuz_saves')
+app.config['UPLOAD_FOLDER_LOGOS'] = os.path.join(BASE_DIR, 'static/images/logos') # YENİ
 
 DATABASE = 'kafe.db'
 
@@ -111,6 +112,7 @@ def get_settings_for_client():
     return jsonify({
         'cafe_name': settings.get('cafe_name'),
         'slogan': settings.get('slogan'),
+        'logo_file': settings.get('logo_file'), # GÜNCELLENDİ
         'background_type': settings.get('background_type'),
         'background_file': settings.get('background_file'),
         'background_opacity_factor': settings.get('background_opacity_factor'),
@@ -535,11 +537,41 @@ def license_management():
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def general_settings():
     if request.method == 'POST':
+        # --- Logo Silme ---
+        if 'delete_logo' in request.form:
+            current_settings = get_all_settings()
+            logo_to_delete = current_settings.get('logo_file')
+            if logo_to_delete:
+                try:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], logo_to_delete))
+                except OSError as e:
+                    print(f"Logo silinirken hata: {e}")
+            set_setting('logo_file', '')
+            return redirect(url_for('general_settings'))
+
+        # --- Ayarları Güncelleme ---
         cafe_name = request.form['cafe_name']
         slogan = request.form['slogan']
         set_setting('cafe_name', cafe_name)
         set_setting('slogan', slogan)
 
+        # --- Logo Yükleme ---
+        if 'logo_file' in request.files:
+            file = request.files['logo_file']
+            if file and file.filename != '':
+                current_settings = get_all_settings()
+                old_file = current_settings.get('logo_file')
+                if old_file:
+                    try: 
+                        os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], old_file))
+                    except OSError: 
+                        pass
+
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], filename))
+                set_setting('logo_file', filename)
+
+        # --- Arkaplan Ayarları ---
         background_type = request.form['background_type']
         set_setting('background_type', background_type)
 
@@ -584,6 +616,7 @@ def general_settings():
     settings = get_all_settings()
     settings.setdefault('cafe_name', 'Zenka Internet Cafe')
     settings.setdefault('slogan', 'Hazırsan, oyun başlasın.')
+    settings.setdefault('logo_file', '') # GÜNCELLENDİ
     settings.setdefault('background_type', 'default')
     settings.setdefault('background_file', '')
     settings.setdefault('background_opacity_factor', '1.0')
@@ -595,7 +628,7 @@ def general_settings():
 if __name__ == '__main__':
     init_db() 
     
-    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG', 'UPLOAD_FOLDER_100_SAVES']:
+    for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG', 'UPLOAD_FOLDER_100_SAVES', 'UPLOAD_FOLDER_LOGOS']: # GÜNCELLENDİ
         folder_path = app.config.get(folder_key)
         if folder_path and not os.path.exists(folder_path):
             os.makedirs(folder_path)
