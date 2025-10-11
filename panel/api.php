@@ -15,13 +15,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $input = json_decode(file_get_contents('php://input'), true);
 
     $license_key = $input['license_key'] ?? '';
-    $hwid = $input['hwid'] ?? '';
+    $hwid = $input['hwid'] ?? ''; 
+    $client_ip = $input['client_ip'] ?? ''; 
 
-    if (empty($license_key) || empty($hwid)) {
-        $response['reason'] = 'Lisans anahtarı veya donanım kimliği eksik.';
+    // KRİTİK GÜVENLİK KONTROLÜ: Gelen HWID boşsa reddet
+    if (empty($hwid)) {
+        $response['reason'] = '( Donanım Kimliği Eksik )'; // Kısa HWID eksik mesajı
+    } elseif (empty($license_key)) {
+        $response['reason'] = '( Lisans Anahtarı Eksik )'; // Kısa Lisans eksik mesajı
     } else {
-        // Lisans anahtarını veritabanında ara
-        $sql = "SELECT id, customer_id, hwid, end_date, status FROM licenses WHERE license_key = ?";
+        // Lisans anahtarını veritabanında ara (licensed_ip kolonunu çekiyoruz)
+        $sql = "SELECT id, customer_id, hwid, licensed_ip, end_date, status FROM licenses WHERE license_key = ?";
         
         if ($stmt = $mysqli->prepare($sql)) {
             $stmt->bind_param("s", $license_key);
@@ -34,48 +38,72 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     // Lisansın durumunu kontrol et
                     if ($license['status'] === 'cancelled' || $license['status'] === 'expired') {
-                        $response['reason'] = 'Lisans iptal edilmiş veya süresi dolmuş.';
+                        $response['reason'] = '( İptal Edildi veya Süresi Doldu )';
                     } 
                     // Lisansın son kullanım tarihini kontrol et
                     elseif (strtotime($license['end_date']) < time()) {
-                        $response['reason'] = 'Lisansın kullanım süresi dolmuş.';
-                        // Durumu veritabanında da güncelle
+                        $response['reason'] = '( Süresi Doldu )';
                         $mysqli->query("UPDATE licenses SET status = 'expired' WHERE id = " . $license['id']);
                     }
-                    // İlk aktivasyon mu? (HWID boş ise)
+                    // 1. İLK KONTROL: DB'de HWID boş mu? (Initial Activation)
                     elseif (empty($license['hwid'])) {
-                        // HWID'yi veritabanına kaydet ve lisansı aktifleştir
-                        $update_sql = "UPDATE licenses SET hwid = ?, status = 'active' WHERE id = ?";
-                        if($update_stmt = $mysqli->prepare($update_sql)) {
-                            $update_stmt->bind_param("si", $hwid, $license['id']);
-                            if($update_stmt->execute()){
-                                $response = ['status' => 'valid', 'message' => 'Lisans başarıyla bu cihaza atandı.'];
+                        $licensed_ip = $license['licensed_ip'] ?? '';
+                        
+                        // YENİ KURAL: IP adresi PANEL'de ayarlanmış olmalı!
+                        if (empty($licensed_ip)) {
+                            // Hata: HWID geldi ama IP ayarlanmamış
+                            $response['reason'] = '( IP Adresi Doğrulanmadı )'; // İstenen Mesaj
+                        } else {
+                            // IP kısıtlaması var. Şimdi gelen IP'yi kontrol et.
+                            if ($licensed_ip === $client_ip) {
+                                // Aktivasyon Kuralları Karşılandı: HWID kaydı yapılıyor
+                                $update_sql = "UPDATE licenses SET hwid = ?, status = 'active' WHERE id = ?";
+                                if($update_stmt = $mysqli->prepare($update_sql)) {
+                                    $update_stmt->bind_param("si", $hwid, $license['id']);
+                                    if($update_stmt->execute()){
+                                        $response = ['status' => 'valid', 'message' => 'Lisans başarıyla bu cihaza atandı ve IP adresi doğrulandı.'];
+                                    } else {
+                                        $response['reason'] = '( Veritabanı Hatası )';
+                                    }
+                                    $update_stmt->close();
+                                }
                             } else {
-                                $response['reason'] = 'Lisans aktifleştirilirken veritabanı hatası oluştu.';
+                                $response['reason'] = '( IP Adresi Eşleşmiyor )';
                             }
-                            $update_stmt->close();
                         }
                     }
-                    // Sonraki doğrulamalar (HWID eşleşiyor mu?)
+                    // 2. SONRAKİ KONTROL: DB'de HWID dolu.
                     elseif ($license['hwid'] === $hwid) {
-                        $response = ['status' => 'valid', 'message' => 'Lisans doğrulandı.'];
+                        // HWID (Anakart Seri No) eşleşti. Şimdi IP kontrolü.
+                        $licensed_ip = $license['licensed_ip'] ?? '';
+                        
+                        if (empty($licensed_ip)) {
+                            // Hata: HWID eşleşti ama IP ayarlanmamış
+                            $response['reason'] = '( IP Adresi Doğrulanmadı )'; // İstenen Mesaj
+                        }
+                        // HWID ve IP adreslerinin ikisi de eşleşmeli
+                        elseif ($licensed_ip === $client_ip) {
+                            $response = ['status' => 'valid', 'message' => 'Lisans doğrulandı.'];
+                        } else {
+                            $response['reason'] = '( IP Adresi Eşleşmiyor )';
+                        }
                     }
-                    // HWID eşleşmiyorsa
+                    // 3. HWID eşleşmiyorsa
                     else {
-                        $response['reason'] = 'Bu lisans anahtarı başka bir cihaza kayıtlıdır.';
+                        $response['reason'] = '( Farklı Cihaza Kayıtlı )';
                     }
 
                 } else {
-                    $response['reason'] = 'Geçersiz lisans anahtarı.';
+                    $response['reason'] = '( Geçersiz Lisans Anahtarı )';
                 }
             } else {
-                $response['reason'] = 'Veritabanı sorgusu başarısız oldu.';
+                $response['reason'] = '( Veritabanı Sorgu Hatası )';
             }
             $stmt->close();
         }
     }
 } else {
-    $response['reason'] = 'Geçersiz istek metodu. Sadece POST istekleri kabul edilir.';
+    $response['reason'] = 'Geçersiz istek metodu.';
 }
 
 $mysqli->close();

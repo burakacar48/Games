@@ -13,6 +13,8 @@ from database import init_db
 from PIL import Image
 import requests
 import uuid
+# subprocess kütüphanesi eklendi
+import subprocess
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bu-cok-gizli-bir-anahtar-kimse-bilmemeli'
@@ -272,7 +274,7 @@ def admin_index():
 @app.route('/admin/sliders')
 def manage_sliders():
     conn = get_db_connection()
-    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id ORDER BY s.display_order ASC').fetchall()
+    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id WHERE s.is_active = 1 ORDER BY s.display_order ASC').fetchall()
     conn.close()
     return render_template('manage_sliders.html', sliders=sliders)
 
@@ -600,12 +602,6 @@ def download_games():
 
 # --- LİSANS YÖNETİMİ BÖLÜMÜ ---
 
-# Donanım Kimliği (HWID) oluşturma fonksiyonu
-def get_hwid():
-    mac_num = hex(uuid.getnode()).replace('0x', '').upper()
-    hwid = '-'.join(mac_num[i: i + 2] for i in range(0, 11, 2))
-    return hwid
-
 # Lisans durumunu global bir değişkende tutalım
 license_status_cache = {
     "status": None,
@@ -613,13 +609,47 @@ license_status_cache = {
     "last_checked": None
 }
 
-def check_license(license_key, hwid):
-    """PHP API'sini çağırarak lisansı doğrular."""
+# Donanım Kimliği (HWID) oluşturma fonksiyonu: Anakart Seri Numarası çekiliyor
+def get_hwid():
+    # Anakart seri numarasını çekmek için PowerShell komutunu kullan
+    try:
+        # PowerShell komutunu çalıştır
+        command = ['powershell', '-Command', 'Get-CimInstance -ClassName Win32_BaseBoard | Select-Object SerialNumber']
+        # CREATE_NO_WINDOW bayrağı kaldırıldı, böylece hatayı daha iyi görebiliriz
+        process = subprocess.run(command, 
+                                 capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW) 
+        
+        output = process.stdout
+        
+        # PowerShell çıktısını ayıkla (Header, -----, Serial Number)
+        lines = [line.strip() for line in output.splitlines() if line.strip()]
+        
+        # Seri numarası genellikle 2. veya 3. satırda bulunur
+        if len(lines) >= 3:
+            # SerialNumber header ve ayırıcı çizgiden sonraki satırı hedefle
+            # Genellikle 2. indexteki satır Seri numarasıdır (0=Header, 1=-----, 2=Serial)
+            serial_number = lines[2].strip()
+            
+            if serial_number and serial_number != 'To be filled by O.E.M.' and serial_number != 'None': 
+                return serial_number.replace(" ", "").strip()
+        
+    except Exception as e:
+        # Eğer PowerShell başarısız olursa, hatayı logla
+        print(f"Anakart Seri Numarası PowerShell ile çekilemedi: {e}")
+        pass
+    
+    # Başarısız olursa boş string döndür
+    return "" 
+    
+# Lisans anahtarını ve istemci IP'sini kontrol eden fonksiyon güncellendi
+def check_license(license_key, hwid, client_ip):
+    """PHP API'sini çağırarak lisansı Anakart Seri No ve IP ile doğrular."""
     global license_status_cache
     api_url = "https://onurmedya.tr/burak/api.php"
     payload = {
         "license_key": license_key,
-        "hwid": hwid
+        "hwid": hwid, 
+        "client_ip": client_ip 
     }
     try:
         response = requests.post(api_url, json=payload, timeout=10)
@@ -642,6 +672,17 @@ def license_management():
     message = None
     settings = get_all_settings()
     license_key = settings.get('license_key', '')
+    
+    # Admin Panelinin çalıştığı sunucunun HWID'si
+    server_hwid = get_hwid() 
+    
+    # HWID'nin panele aktarılması için ek bir güvenlik kontrolü (boş değilse)
+    if not license_key and server_hwid:
+         message = "Anakart Seri Numarası başarıyla okundu. Lütfen lisans anahtarınızı girin."
+    elif not server_hwid and license_key:
+         # Burası, asıl sorunu gösteren yerdir
+         message = "UYARI: Anakart Seri Numarası (HWID) otomatik olarak alınamadı. Bu nedenle doğrulama başarısız olabilir. Komut çıktısını manuel kontrol edin."
+
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -649,7 +690,10 @@ def license_management():
         if action == 'save_and_check':
             license_key = request.form.get('license_key', '')
             set_setting('license_key', license_key)
-            check_license(license_key, get_hwid())
+            
+            # Sunucunun HWID'si ve dış IP'si ile kontrol yapılıyor
+            check_license(license_key, server_hwid, request.remote_addr)
+            
             if license_status_cache['status'] == 'valid':
                 message = "Lisans anahtarı başarıyla kaydedildi ve doğrulandı!"
             else:
@@ -659,7 +703,7 @@ def license_management():
             if not license_key:
                 message = "Lütfen önce bir lisans anahtarı kaydedin."
             else:
-                check_license(license_key, get_hwid())
+                check_license(license_key, server_hwid, request.remote_addr)
                 message = f"Lisans durumu yeniden kontrol edildi: {license_status_cache['reason']}"
 
     return render_template(
@@ -667,6 +711,7 @@ def license_management():
         license_key=license_key,
         license_status=license_status_cache.get('status'),
         license_reason=license_status_cache.get('reason'),
+        server_hwid=server_hwid, # Server HWID'si panele gönderiliyor
         message=message
     )
 
@@ -764,7 +809,7 @@ def general_settings():
 def check_status_for_client():
     """
     Client bilgisayarlarının bağlanacağı dahili API.
-    Sadece bellekteki lisans durumunu döndürür.
+    Anakart Seri Numarası ve İstemci IP adresi (Python sunucunun IP'si) kontrol edilerek durumu döndürür.
     """
     global license_status_cache
     
@@ -774,7 +819,9 @@ def check_status_for_client():
         settings = get_all_settings()
         license_key = settings.get('license_key', '')
         if license_key:
-            check_license(license_key, get_hwid())
+            server_hwid = get_hwid()
+            # Lisans kontrolü için sunucunun kendi IP adresini kullan
+            check_license(license_key, server_hwid, request.remote_addr)
 
     if license_status_cache.get('status') == 'valid':
         return jsonify({"status": "ok"})

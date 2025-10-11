@@ -6,7 +6,20 @@ $sql = "SELECT c.id as customer_id, c.name, l.license_type, l.start_date, l.end_
         ORDER BY c.name ASC";
 $result = $mysqli->query($sql);
 
-function getStatusBadge($status) { /* ... fonksiyon içeriği aynı ... */ }
+function getStatusBadge($status) { 
+    switch ($status) {
+        case 'active':
+            return '<span class="px-3 py-1 text-sm font-semibold rounded-full bg-green-500/20 text-green-400">Aktif</span>';
+        case 'pending':
+            return '<span class="px-3 py-1 text-sm font-semibold rounded-full bg-yellow-500/20 text-yellow-400">Beklemede</span>';
+        case 'expired':
+            return '<span class="px-3 py-1 text-sm font-semibold rounded-full bg-red-500/20 text-red-400">Süresi Doldu</span>';
+        case 'cancelled':
+            return '<span class="px-3 py-1 text-sm font-semibold rounded-full bg-slate-500/20 text-slate-400">İptal Edildi</span>';
+        default:
+            return '<span class="px-3 py-1 text-sm font-semibold rounded-full bg-slate-500/20 text-slate-400">Bilinmiyor</span>';
+    }
+}
 ?>
 <div>
     <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -34,8 +47,7 @@ function getStatusBadge($status) { /* ... fonksiyon içeriği aynı ... */ }
                             <td class="py-4 px-4"><?php echo getStatusBadge($row['status']); ?></td>
                             <td class="py-4 px-4">
                                 <div class="flex space-x-2">
-                                    <a href="index.php?tab=edit_customer&id=<?php echo $row['customer_id']; ?>" title="Müşteri Bilgilerini Düzenle" class="p-2 bg-gray-500/10 text-gray-400 rounded-lg hover:bg-gray-500/20 transition"><i data-lucide="user" class="w-4 h-4"></i></a>
-                                    <a href="index.php?tab=edit_license&id=<?php echo $row['license_id']; ?>" title="Lisansı Düzenle" class="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition"><i data-lucide="key-round" class="w-4 h-4"></i></a>
+                                    <a href="index.php?tab=edit_license&id=<?php echo $row['license_id']; ?>" title="Lisansı ve Müşteriyi Düzenle" class="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition"><i data-lucide="key-round" class="w-4 h-4"></i></a>
                                     <a href="delete_license.php?id=<?php echo $row['license_id']; ?>" title="Sil" class="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition" onclick="return confirm('Bu lisansı ve potansiyel olarak müşteri kaydını kalıcı olarak silmek istediğinizden emin misiniz?');"><i data-lucide="trash-2" class="w-4 h-4"></i></a>
                                 </div>
                             </td>
