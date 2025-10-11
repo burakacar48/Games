@@ -1,9 +1,34 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron'); // 'dialog' eklendi
 const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs/promises');
 const archiver = require('archiver');
 const extract = require('extract-zip');
+const fetch = require('electron-fetch').default; // electron-fetch kütüphanesi
+
+// --- LİSANS KONTROL BÖLÜMÜ BAŞLANGICI ---
+
+// Kafe sunucunuzun yerel ağdaki IP adresini buraya girin.
+// Test için aynı bilgisayardaysa '127.0.0.1' kalabilir.
+const SERVER_IP = '127.0.0.1'; 
+const SERVER_URL = `http://${SERVER_IP}:5000`;
+
+async function verifyLicense() {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/internal/check_status`);
+    if (!response.ok) {
+      throw new Error(`Sunucu hatası: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.status === 'ok';
+  } catch (error) {
+    console.error('Lisans doğrulaması başarısız:', error.message);
+    dialog.showErrorBox('Lisans Hatası', `Ana sunucuya bağlanılamadı veya lisans doğrulaması başarısız oldu. Lütfen kafe yöneticinize başvurun.\n\nHata: ${error.message}`);
+    return false;
+  }
+}
+
+// --- LİSANS KONTROL BÖLÜMÜ SONU ---
 
 function resolvePath(filePath) {
     if (!filePath) return null;
@@ -18,7 +43,15 @@ function resolvePath(filePath) {
     return filePath;
 }
 
-function createWindow() {
+async function createWindow() { // Fonksiyonu async olarak güncelledik
+  // --- LİSANS KONTROLÜ ÇAĞRISI ---
+  const isLicensed = await verifyLicense();
+  if (!isLicensed) {
+    app.quit(); // Lisans geçerli değilse uygulamayı kapat
+    return;
+  }
+  // --- KONTROL SONU ---
+
   const win = new BrowserWindow({
     width: 1280,
     height: 720,
@@ -27,7 +60,6 @@ function createWindow() {
     }
   });
 
-  // Önbelleği temizle (YENİ EKLENDİ)
   win.webContents.session.clearCache().then(() => {
     console.log('Önbellek temizlendi.');
   });

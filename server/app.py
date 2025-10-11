@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from functools import wraps
 from database import init_db
 from PIL import Image
+import requests
+import uuid
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bu-cok-gizli-bir-anahtar-kimse-bilmemeli'
@@ -596,9 +598,79 @@ def reset_all_ratings():
 def download_games():
     return render_template('download_games.html')
 
-@app.route('/admin/license_management')
+# --- LİSANS YÖNETİMİ BÖLÜMÜ ---
+
+# Donanım Kimliği (HWID) oluşturma fonksiyonu
+def get_hwid():
+    mac_num = hex(uuid.getnode()).replace('0x', '').upper()
+    hwid = '-'.join(mac_num[i: i + 2] for i in range(0, 11, 2))
+    return hwid
+
+# Lisans durumunu global bir değişkende tutalım
+license_status_cache = {
+    "status": None,
+    "reason": "Henüz kontrol edilmedi",
+    "last_checked": None
+}
+
+def check_license(license_key, hwid):
+    """PHP API'sini çağırarak lisansı doğrular."""
+    global license_status_cache
+    api_url = "https://onurmedya.tr/burak/api.php"
+    payload = {
+        "license_key": license_key,
+        "hwid": hwid
+    }
+    try:
+        response = requests.post(api_url, json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            license_status_cache['status'] = data.get('status')
+            license_status_cache['reason'] = data.get('reason') or data.get('message', 'Durum bilinmiyor.')
+        else:
+            license_status_cache['status'] = 'invalid'
+            license_status_cache['reason'] = f'API sunucusuna ulaşılamadı (HTTP {response.status_code}).'
+    except requests.RequestException as e:
+        license_status_cache['status'] = 'invalid'
+        license_status_cache['reason'] = f'API bağlantı hatası: {e}'
+    
+    license_status_cache['last_checked'] = datetime.now()
+    return license_status_cache
+
+@app.route('/admin/license_management', methods=['GET', 'POST'])
 def license_management():
-    return render_template('license_management.html')
+    message = None
+    settings = get_all_settings()
+    license_key = settings.get('license_key', '')
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'save_and_check':
+            license_key = request.form.get('license_key', '')
+            set_setting('license_key', license_key)
+            check_license(license_key, get_hwid())
+            if license_status_cache['status'] == 'valid':
+                message = "Lisans anahtarı başarıyla kaydedildi ve doğrulandı!"
+            else:
+                message = f"Lisans kaydedildi ancak doğrulanamadı: {license_status_cache['reason']}"
+        
+        elif action == 'check_only':
+            if not license_key:
+                message = "Lütfen önce bir lisans anahtarı kaydedin."
+            else:
+                check_license(license_key, get_hwid())
+                message = f"Lisans durumu yeniden kontrol edildi: {license_status_cache['reason']}"
+
+    return render_template(
+        'license_management.html',
+        license_key=license_key,
+        license_status=license_status_cache.get('status'),
+        license_reason=license_status_cache.get('reason'),
+        message=message
+    )
+
+# --- LİSANS YÖNETİMİ BÖLÜMÜ SONU ---
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def general_settings():
@@ -611,10 +683,12 @@ def general_settings():
                 except OSError as e: print(f"Logo silinirken hata: {e}")
             set_setting('logo_file', '')
             return redirect(url_for('general_settings'))
+        
         cafe_name = request.form['cafe_name']
         slogan = request.form['slogan']
         set_setting('cafe_name', cafe_name)
         set_setting('slogan', slogan)
+
         if 'logo_file' in request.files:
             file = request.files['logo_file']
             if file and file.filename != '':
@@ -626,16 +700,19 @@ def general_settings():
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], filename))
                 set_setting('logo_file', filename)
+        
         background_type = request.form['background_type']
         set_setting('background_type', background_type)
         set_setting('primary_color_start', request.form['primary_color_start'])
         set_setting('primary_color_end', request.form['primary_color_end'])
+        
         opacity_factor = request.form.get('background_opacity_factor', '1.0')
         try:
             factor = max(0.1, min(1.0, float(opacity_factor)))
             set_setting('background_opacity_factor', f"{factor:.1f}")
         except ValueError:
             set_setting('background_opacity_factor', '1.0')
+            
         if background_type == 'custom_bg' and 'custom_background_file' in request.files:
             file = request.files['custom_background_file']
             if file and file.filename != '':
@@ -652,6 +729,7 @@ def general_settings():
             else:
                 set_setting('background_type', 'default')
                 set_setting('background_file', '')
+        
         if background_type == 'default':
             current_settings = get_all_settings()
             old_file = current_settings.get('background_file')
@@ -659,10 +737,12 @@ def general_settings():
                 try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
                 except OSError: pass
             set_setting('background_file', '')
+            
         welcome_enabled = '1' if 'welcome_modal_enabled' in request.form else '0'
         welcome_text = request.form.get('welcome_modal_text', '')
         set_setting('welcome_modal_enabled', welcome_enabled)
         set_setting('welcome_modal_text', welcome_text)
+        
         return redirect(url_for('general_settings'))
 
     settings = get_all_settings()
@@ -678,7 +758,31 @@ def general_settings():
     settings.setdefault('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.')
     
     return render_template('general_settings.html', settings=settings)
+# --- YENİ EKLENEN CLIENT API BÖLÜMÜ ---
 
+@app.route('/api/internal/check_status')
+def check_status_for_client():
+    """
+    Client bilgisayarlarının bağlanacağı dahili API.
+    Sadece bellekteki lisans durumunu döndürür.
+    """
+    global license_status_cache
+    
+    # Sunucu ilk açıldığında veya uzun süre geçtiyse lisansı yeniden kontrol et
+    last_checked = license_status_cache.get('last_checked')
+    if not last_checked or (datetime.now() - last_checked) > timedelta(hours=1):
+        settings = get_all_settings()
+        license_key = settings.get('license_key', '')
+        if license_key:
+            check_license(license_key, get_hwid())
+
+    if license_status_cache.get('status') == 'valid':
+        return jsonify({"status": "ok"})
+    else:
+        # Client'a detaylı sebep göndermeye gerek yok, sadece 'error' yeterli.
+        return jsonify({"status": "error"}), 403 # 403 Forbidden (Yasaklandı)
+
+# --- YENİ BÖLÜM SONU ---
 if __name__ == '__main__':
     init_db() 
     

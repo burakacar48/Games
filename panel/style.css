@@ -1,0 +1,8 @@
+body {
+    font-family: 'Inter', sans-serif;
+    color: #e2e8f0; /* slate-200 */
+}
+/* Tarayıcının tarih inputuna eklediği ikonu beyaz yapmak için */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}

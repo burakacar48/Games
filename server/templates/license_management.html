@@ -6,5 +6,49 @@
     <div class="header">
         <h1>Lisans Yönetimi</h1>
     </div>
-    <p>Bu sayfa yapım aşamasındadır.</p>
+    <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">
+        Yazılım lisansınızı bu sayfadan yönetebilir ve durumunu kontrol edebilirsiniz.
+    </p>
+
+    <div class="form-container">
+        {% if message %}
+            <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; color: white; background-color: {% if 'başarıyla' in message %}rgba(52, 211, 153, 0.2){% else %}rgba(239, 68, 68, 0.2){% endif %}; border: 1px solid {% if 'başarıyla' in message %}rgba(52, 211, 153, 0.4){% else %}rgba(239, 68, 68, 0.4){% endif %};">
+                {{ message }}
+            </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('license_management') }}">
+            <div class="section-title">Lisans Bilgileri</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="license_key">Ana Lisans Anahtarı:</label>
+                    <input type="text" id="license_key" name="license_key" value="{{ license_key }}" placeholder="KA-STD-XXXX-XXXX" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Lisans Durumu:</label>
+                    <div style="padding: 12px 16px; border-radius: 12px; background: rgba(30, 30, 46, 0.8);">
+                        {% if license_status == 'valid' %}
+                            <span style="color: #34d399; font-weight: bold;">AKTİF</span>
+                        {% elif license_status %}
+                            <span style="color: #f87171; font-weight: bold;">GEÇERSİZ ({{ license_reason }})</span>
+                        {% else %}
+                            <span style="color: #94a3b8;">Bilinmiyor (Henüz kontrol edilmedi)</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-actions" style="margin-top: 20px;">
+                <button type="submit" name="action" value="save_and_check" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Kaydet ve Kontrol Et
+                </button>
+                 <button type="submit" name="action" value="check_only" class="btn btn-secondary">
+                    <i class="fas fa-sync-alt"></i>
+                    Sadece Durumu Kontrol Et
+                </button>
+            </div>
+        </form>
+    </div>
 {% endblock %}
