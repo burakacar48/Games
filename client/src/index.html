@@ -29,34 +29,35 @@
     </aside>
 
     <main class="main-content">
-        <div class="top-bar">
-            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-            <div class="top-menu">
-                <div class="nav-item active" data-category="all">
-                    <span class="nav-icon">🏠</span>
-                    Ana Sayfa
-                </div>
-                <div class="nav-item" data-category="favorites">
-                    <span class="nav-icon">❤️</span>
-                    Favorilerim
-                </div>
-                <div class="nav-item" data-category="recent">
-                    <span class="nav-icon">🕐</span>
-                    Son Oynananlar
-                </div>
-                <div class="nav-item" data-category="discover">
-                    <span class="nav-icon">🎮</span>
-                    Tüm Oyunlar
-                </div>
+    <div class="top-bar">
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <div class="top-bar-left">
+        <div class="search-box">
+            <input type="text" placeholder="Oyun ara..." id="searchInput">
+            <span class="search-icon">🔍</span>
+        </div>
+        <div class="top-menu">
+            <div class="nav-item active" data-category="all">
+                <span class="nav-icon">🏠</span>
+                Ana Sayfa
             </div>
-            
-            <div class="search-box">
-                <input type="text" placeholder="Oyun ara..." id="searchInput">
-                <span class="search-icon">🔍</span>
+            <div class="nav-item" data-category="favorites">
+                <span class="nav-icon">❤️</span>
+                Favorilerim
             </div>
-            <div class="top-actions" id="user-actions">
+            <div class="nav-item" data-category="recent">
+                <span class="nav-icon">🕐</span>
+                Son Oynananlar
+            </div>
+            <div class="nav-item" data-category="discover">
+                <span class="nav-icon">🎮</span>
+                Tüm Oyunlar
             </div>
         </div>
+    </div>
+    <div class="top-actions" id="user-actions">
+    </div>
+</div>
 
         <div class="hero-section" id="hero-section">
             <div class="slider-nav prev" id="slider-prev"><i class="fas fa-chevron-left"></i></div>

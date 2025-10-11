@@ -90,19 +90,38 @@ body {
 .main-content { margin-left: 280px; min-height: 100vh; }
 
 /* Üst Bar */
-.top-bar { position: sticky; top: 0; background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px); border-bottom: 1px solid #2a2a2a; padding: 15px 40px; display: flex; align-items: center; gap: 20px; z-index: 100; }
+.top-bar {
+    position: sticky;
+    top: 0;
+    background: rgba(15, 15, 15, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid #2a2a2a;
+    padding: 15px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    z-index: 100;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
 
 /* Yeni yatay menü stili */
 .top-menu {
     display: flex;
-    gap: 10px; 
+    gap: 10px;
     align-items: center;
     margin-left: 0; /* Boşluk top-bar'ın gap özelliğiyle yönetilir */
     flex-shrink: 0;
 }
 .top-menu .nav-item {
-    padding: 10px 12px; 
-    border-radius: 8px; 
+    padding: 10px 12px;
+    border-radius: 8px;
     font-size: 0.9rem;
     font-weight: 600;
 }
@@ -120,8 +139,9 @@ body {
     width: auto;
 }
 
-.search-box { 
-    flex: 1; min-width: 200px; position: relative; 
+.search-box {
+    position: relative;
+    width: 350px; /* Genişlik kısıtlandı */
 }
 .search-box input { width: 100%; padding: 12px 45px 12px 20px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; color: #fff; font-size: 0.95rem; transition: all 0.3s ease; }
 .search-box input:focus { outline: none; border-color: var(--primary-start); background: #0f0f0f; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); }
@@ -178,26 +198,26 @@ body {
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 .section-header.discover-header { flex-wrap: wrap; gap: 20px; } /* Yeni Discover/Sıralama Başlık Stili */
 .section-title { font-size: 1.8rem; font-weight: 700; }
-.view-all { 
-    background: rgba(255, 255, 255, 0.1); 
-    color: #fff; 
-    padding: 8px 15px; 
-    border-radius: 6px; 
-    border: 1px solid rgba(255, 255, 255, 0.2); 
-    font-size: 0.85rem; 
-    font-weight: 600; 
-    cursor: pointer; 
-    transition: all 0.3s ease; 
-    text-decoration: none; 
-    display: inline-flex; 
-    align-items: center; 
-    gap: 8px; 
+.view-all {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 8px 15px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
-.view-all:hover { 
+.view-all:hover {
     background: var(--primary-gradient);
     border-color: var(--primary-start);
     transform: translateY(-1px);
-    text-decoration: none; 
+    text-decoration: none;
 }
 
 /* Yeni Sıralama Butonları Stilleri */
@@ -223,11 +243,27 @@ body {
 }
 
 
-.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+.games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
 .game-card { background: #1a1a1a; border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.3s ease; border: 1px solid #2a2a2a; }
 .game-card:hover { transform: translateY(-8px); border-color: var(--primary-start); box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5); }
-.game-image-wrapper { position: relative; width: 100%; height: 320px; overflow: hidden; }
-.game-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+.game-image-wrapper {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    aspect-ratio: 2 / 3; /* Posterler için en-boy oranını koru */
+    background-color: #1a1a1a; /* Arka plan rengini kart ile aynı yap */
+}
+.game-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Görseli kutuyu dolduracak şekilde kırp */
+    transition: transform 0.5s ease;
+}
 .game-card:hover .game-image { transform: scale(1.1); }
 .game-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.9) 100%); opacity: 0; transition: opacity 0.3s ease; display: flex; align-items: center; justify-content: center; }
 .game-card:hover .game-overlay { opacity: 1; }
@@ -239,6 +275,13 @@ body {
 
 /* Hamburger Menu & Responsive */
 .menu-toggle { display: none; width: 40px; height: 40px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; cursor: pointer; align-items: center; justify-content: center; font-size: 1.5rem; color: #fff; }
+
+@media (min-width: 1920px) {
+    .games-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+}
+
 @media (max-width: 1024px) {
     .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
     .sidebar.active { transform: translateX(0); }

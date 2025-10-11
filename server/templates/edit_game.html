@@ -54,7 +54,11 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label>Kapak Resmi</label>
-                    <p class="file-prompt">Mevcut Resim:</p>
+                    <p class="file-prompt" style="font-size: 12px; color: #a5b4fc;">
+                        <strong>Tavsiye Edilen:</strong> 600x900 Pixel<br>
+                        <strong>Yüksek Kalite:</strong> 800x1200 piksel<br>
+                        <strong>Minimum Kalite:</strong> 400x600 piksel
+                    </p>
                     {% if game.cover_image %}<img src="{{ url_for('static', filename='images/covers/' + game.cover_image) }}" alt="Mevcut Kapak" class="image-preview">{% else %}<p class="file-prompt">Mevcut kapak resmi yok.</p>{% endif %}
                     <input type="hidden" name="current_cover_image" value="{{ game.cover_image }}">
                     <p class="file-prompt">Değiştirmek için yeni bir resim seçin:</p>
