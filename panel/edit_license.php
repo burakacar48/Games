@@ -12,8 +12,9 @@ $form_err = $form_success = "";
 $license = null;
 
 // Mevcut lisans ve MÜŞTERİ bilgilerini çek
-// Yeni kolon: licensed_ip
-$sql_select = "SELECT l.*, c.id as customer_id, c.name as customer_name, c.email, c.phone, c.company, l.id as license_id, l.licensed_ip FROM licenses l JOIN customers c ON l.customer_id = c.id WHERE l.id = ?";
+// SELECT SORGUSU GÜNCELLENDİ: address, city, district eklendi
+// ÇÖZÜM: Bu sorgu, artık veritabanı düzeltildikten sonra hata vermeyecektir.
+$sql_select = "SELECT l.*, c.id as customer_id, c.name as customer_name, c.email, c.phone, c.company, c.address, c.city, c.district, l.id as license_id, l.licensed_ip, l.hwid FROM licenses l JOIN customers c ON l.customer_id = c.id WHERE l.id = ?";
 if ($stmt_select = $mysqli->prepare($sql_select)) {
     $stmt_select->bind_param("i", $license_id);
     if ($stmt_select->execute()) {
@@ -37,6 +38,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $email = trim($_POST['email']);
         $phone = trim($_POST['phone']);
         $company = trim($_POST['company']);
+        // YENİ EKLENEN ALANLAR ALINIYOR
+        $address = trim($_POST['address']);
+        $city = trim($_POST['city']);
+        $district = trim($_POST['district']);
+        
         $status_toggle = $_POST['status_toggle'];
         $licensed_ip = trim($_POST['licensed_ip']); // IP adresi alınıyor
         
@@ -47,9 +53,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $form_err = "Müşteri adı boş bırakılamaz.";
         } else {
             // Müşteri bilgilerini güncelle
-            $sql_cust = "UPDATE customers SET name = ?, email = ?, phone = ?, company = ? WHERE id = ?";
+            // UPDATE SORGUSU GÜNCELLENDİ: address, city, district eklendi
+            $sql_cust = "UPDATE customers SET name = ?, email = ?, phone = ?, company = ?, address = ?, city = ?, district = ? WHERE id = ?";
             if ($stmt_cust = $mysqli->prepare($sql_cust)) {
-                $stmt_cust->bind_param("ssssi", $name, $email, $phone, $company, $customer_id_update);
+                // BAĞLAMANIN GÜNCELLENMESİ: sssssssi
+                $stmt_cust->bind_param("sssssssi", $name, $email, $phone, $company, $address, $city, $district, $customer_id_update);
                 $stmt_cust->execute();
                 $stmt_cust->close();
             }
@@ -109,6 +117,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     
     // İşlem sonrası tüm bilgileri yeniden çek
+    // SELECT SORGUSU GÜNCELLENDİ: c.address, c.city, c.district çekiliyor
     if ($stmt_select = $mysqli->prepare($sql_select)) {
         $stmt_select->bind_param("i", $license_id);
         if ($stmt_select->execute()) {
@@ -205,7 +214,7 @@ function getStatusBadge($status) {
             
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Müşteri Adı (*)</label>
-                <input type="text" name="name" value="<?php echo htmlspecialchars($license['customer_name']); ?>" required class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+                <input type="text" name="name" value="<?php echo htmlspecialchars($license['customer_name'] ?? ''); ?>" required class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
             </div>
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Email</label>
@@ -220,6 +229,18 @@ function getStatusBadge($status) {
                 <input type="text" name="company" value="<?php echo htmlspecialchars($license['company'] ?? ''); ?>" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
             </div>
             
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">İl</label>
+                <input type="text" name="city" value="<?php echo htmlspecialchars($license['city'] ?? ''); ?>" placeholder="Şehir Adı" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">İlçe</label>
+                <input type="text" name="district" value="<?php echo htmlspecialchars($license['district'] ?? ''); ?>" placeholder="İlçe Adı" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+            </div>
+             <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-300 mb-2">Adres</label>
+                <textarea name="address" rows="3" placeholder="Açık Adres Bilgisi" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"><?php echo htmlspecialchars($license['address'] ?? ''); ?></textarea>
+            </div>
             <div class="md:col-span-2">
                  <h4 class="text-lg font-semibold text-slate-300 mb-4 border-b border-slate-700/50 pb-2 pt-4">Lisans Bilgileri</h4>
             </div>

@@ -18,7 +18,7 @@
         {% endif %}
 
         <form method="POST" action="{{ url_for('license_management') }}">
-            <div class="section-title">Lisans Bilgileri</div>
+            <div class="section-title">Lisans Kayıt</div>
             <div class="form-grid">
                 <div class="form-group">
                     <label for="license_key">Ana Lisans Anahtarı:</label>
@@ -50,5 +50,84 @@
                 </button>
             </div>
         </form>
+        
+        {# LİSANS VE MÜŞTERİ DETAY BÖLÜMÜ BAŞLANGICI #}
+        {% if license_key and full_license_data.license_details %}
+        {% set details = full_license_data.license_details %}
+        {% set debug = full_license_data.debug %}
+        
+        <div class="section-title" style="margin-top: 30px;">Kayıtlı Lisans ve Müşteri Detayları</div>
+        <div class="form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            
+            {% set registered_ip = debug.licensed_ip_db if debug else 'N/A' %}
+            {% set registered_hwid = debug.hwid_db if debug else 'N/A' %}
+            {% set last_check_str = last_check_time.strftime('%d.%m.%Y %H:%M:%S') if last_check_time else 'N/A' %}
+            
+            {# --- İSTENEN SIRALAMA: LİSANS ANAHTARI - SON KONTROL ZAMANI --- #}
+            <div class="form-group">
+                <label>Lisans Anahtarı</label>
+                <input type="text" readonly value="{{ license_key }}" style="color: #f87171; font-weight: bold;">
+            </div>
+            <div class="form-group">
+                <label>Son Kontrol Zamanı</label>
+                <input type="text" readonly value="{{ last_check_str }}">
+            </div>
+
+            {# --- İSTENEN SIRALAMA: KAYITLI HWID - KAYITLI IP --- #}
+            <div class="form-group">
+                <label>Kayıtlı HWID (Cihaz Kodu)</label>
+                <input type="text" readonly value="{{ registered_hwid }}">
+            </div>
+            <div class="form-group">
+                <label>Kayıtlı IP Adresi</label>
+                <input type="text" readonly value="{{ registered_ip }}">
+            </div>
+            
+            {# --- İSTENEN SIRALAMA: BAŞLANGIÇ - BİTİŞ TARİHİ --- #}
+            <div class="form-group">
+                <label>Başlangıç Tarihi</label>
+                <input type="text" readonly value="{{ details.start_date }}">
+            </div>
+             <div class="form-group">
+                <label>Bitiş Tarihi</label>
+                <input type="text" readonly value="{{ details.end_date }}">
+            </div>
+
+            {# --- MÜŞTERİ BİLGİLERİ --- #}
+            <div class="form-group full-width" style="margin-top: 15px;">
+                <div class="form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div class="form-group">
+                        <label style="font-size: 13px;">Adı / Soyadı</label>
+                        <input type="text" readonly value="{{ details.customer_name }}">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 13px;">Şirket / Kafe Adı</label>
+                        <input type="text" readonly value="{{ details.company }}">
+                    </div>
+                    <div class="form-group full-width">
+                        <label style="font-size: 13px;">Adres Detayları (İl / İlçe / Açık Adres)</label>
+                        <textarea rows="2" readonly>{{ details.address_details }}</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            {# --- HATA VE DOĞRULAMA ADIMI (Sadece Geçersiz İse) --- #}
+             {% if license_status != 'valid' %}
+             <div class="form-group full-width" style="margin-top: 25px;">
+                <label style="color: #f87171;">Doğrulama Adımı/Hatası:</label>
+                <textarea rows="2" readonly style="color: #f87171; background: rgba(239, 68, 68, 0.1);">
+                {% if debug.validation_step or debug.activation_status %}
+                    Adım: {{ debug.validation_step or debug.activation_status }}
+                {% else %}
+                    Hata Kodu: {{ license_reason }}
+                {% endif %}
+                </textarea>
+            </div>
+            {% endif %}
+
+        </div>
+        {% endif %}
+        {# LİSANS VE MÜŞTERİ DETAY BÖLÜMÜ SONU #}
+
     </div>
 {% endblock %}

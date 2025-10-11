@@ -13,17 +13,39 @@ const fetch = require('electron-fetch').default; // electron-fetch kütüphanesi
 const SERVER_IP = '127.0.0.1'; 
 const SERVER_URL = `http://${SERVER_IP}:5000`;
 
+// DÜZELTME: getPublicIP fonksiyonu artık client'ta kullanılmıyor. Kaldırılabilir veya boş bırakılabilir.
+
 async function verifyLicense() {
+  
+  // DÜZELTME: Client artık sadece Flask API'sini çağırıyor
   try {
-    const response = await fetch(`${SERVER_URL}/api/internal/check_status`);
-    if (!response.ok) {
-      throw new Error(`Sunucu hatası: ${response.statusText}`);
+    const response = await fetch(`${SERVER_URL}/api/internal/check_status`); // IP parametresini kaldırdık
+    
+    // Yanıtın durumu 200 değilse (yani 403 ise) veya JSON yanıtı 'ok' değilse hata fırlat
+    if (response.status !== 200 || (await response.clone().json()).status !== 'ok') {
+      const errorData = await response.json();
+      
+      let reason = errorData.reason || "Bilinmeyen bir sunucu hatası oluştu.";
+      let debugMessage = '';
+
+      if (errorData.debug) {
+        // Debug bilgilerini okunabilir bir formatta hazırla
+        debugMessage = '\n\n--- HATA AYIKLAMA (DEBUG) BİLGİLERİ ---\n';
+        debugMessage += `Gelen IP (Client): ${errorData.debug.client_ip_incoming}\n`;
+        debugMessage += `DB IP (Kayıtlı): ${errorData.debug.licensed_ip_db}\n`;
+        debugMessage += `Gelen HWID: ${errorData.debug.hwid_incoming ? errorData.debug.hwid_incoming.substring(0, 10) + '...' : 'BOŞ'}\n`;
+        debugMessage += `DB HWID: ${errorData.debug.hwid_db ? errorData.debug.hwid_db.substring(0, 10) + '...' : 'BOŞ'}\n`;
+        debugMessage += `Doğrulama Adımı: ${errorData.debug.validation_step || errorData.debug.activation_status || 'N/A'}`;
+      }
+      
+      throw new Error(reason + debugMessage);
     }
     const data = await response.json();
     return data.status === 'ok';
   } catch (error) {
     console.error('Lisans doğrulaması başarısız:', error.message);
-    dialog.showErrorBox('Lisans Hatası', `Ana sunucuya bağlanılamadı veya lisans doğrulaması başarısız oldu. Lütfen kafe yöneticinize başvurun.\n\nHata: ${error.message}`);
+    // Hata mesajını (debug bilgileri dahil) göster
+    dialog.showErrorBox('Lisans Hatası', `Ana sunucuya bağlanılamadı veya lisans doğrulaması başarısız oldu. Lütfen kafe yöneticinize başvurun.\n\nHata Detayı: ${error.message}`);
     return false;
   }
 }
@@ -45,10 +67,17 @@ function resolvePath(filePath) {
 
 async function createWindow() { // Fonksiyonu async olarak güncelledik
   // --- LİSANS KONTROLÜ ÇAĞRISI ---
-  const isLicensed = await verifyLicense();
-  if (!isLicensed) {
-    app.quit(); // Lisans geçerli değilse uygulamayı kapat
-    return;
+  try {
+      const isLicensed = await verifyLicense(); 
+      if (!isLicensed) {
+        app.quit(); // Lisans geçerli değilse uygulamayı kapat
+        return;
+      }
+  } catch(e) {
+      // getPublicIP'den veya verifyLicense'dan gelen katı hataları göster
+      dialog.showErrorBox('Kritik Lisans Hatası', `Uygulama başlatılamıyor.\n\nDetay: ${e.message}`);
+      app.quit();
+      return;
   }
   // --- KONTROL SONU ---
 

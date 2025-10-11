@@ -641,6 +641,21 @@ def get_hwid():
     # Başarısız olursa boş string döndür
     return "" 
     
+# Yeni: Flask sunucusunun harici IP adresini çeken fonksiyon
+def get_public_ip_from_server():
+    """Flask sunucusunun çalıştığı makinenin harici IP'sini bir API aracılığıyla çeker."""
+    try:
+        # Flask, harici bir IP servisini çağırır
+        response = requests.get('https://api.ipify.org?format=json', timeout=5)
+        if response.status_code == 200:
+            return response.json()['ip']
+    except requests.RequestException as e:
+        print(f"UYARI: Sunucu harici IP alımında hata: {e}")
+        pass
+    
+    # Başarısız olursa boş string döndürür.
+    return "" 
+
 # Lisans anahtarını ve istemci IP'sini kontrol eden fonksiyon güncellendi
 def check_license(license_key, hwid, client_ip):
     """PHP API'sini çağırarak lisansı Anakart Seri No ve IP ile doğrular."""
@@ -657,12 +672,15 @@ def check_license(license_key, hwid, client_ip):
             data = response.json()
             license_status_cache['status'] = data.get('status')
             license_status_cache['reason'] = data.get('reason') or data.get('message', 'Durum bilinmiyor.')
+            license_status_cache['full_api_response'] = data # Tüm API yanıtını kaydet
         else:
             license_status_cache['status'] = 'invalid'
             license_status_cache['reason'] = f'API sunucusuna ulaşılamadı (HTTP {response.status_code}).'
+            license_status_cache['full_api_response'] = {'debug': 'HTTP Status Error'}
     except requests.RequestException as e:
         license_status_cache['status'] = 'invalid'
         license_status_cache['reason'] = f'API bağlantı hatası: {e}'
+        license_status_cache['full_api_response'] = {'debug': f'Request Exception: {str(e)}'}
     
     license_status_cache['last_checked'] = datetime.now()
     return license_status_cache
@@ -675,6 +693,9 @@ def license_management():
     
     # Admin Panelinin çalıştığı sunucunun HWID'si
     server_hwid = get_hwid() 
+    
+    # Yeni: Sunucu kendi harici IP'sini çekiyor
+    server_public_ip = get_public_ip_from_server()
     
     # HWID'nin panele aktarılması için ek bir güvenlik kontrolü (boş değilse)
     if not license_key and server_hwid:
@@ -691,8 +712,8 @@ def license_management():
             license_key = request.form.get('license_key', '')
             set_setting('license_key', license_key)
             
-            # Sunucunun HWID'si ve dış IP'si ile kontrol yapılıyor
-            check_license(license_key, server_hwid, request.remote_addr)
+            # Sunucunun HWID'si ve HARİCİ IP'si ile kontrol yapılıyor
+            check_license(license_key, server_hwid, server_public_ip)
             
             if license_status_cache['status'] == 'valid':
                 message = "Lisans anahtarı başarıyla kaydedildi ve doğrulandı!"
@@ -703,8 +724,12 @@ def license_management():
             if not license_key:
                 message = "Lütfen önce bir lisans anahtarı kaydedin."
             else:
-                check_license(license_key, server_hwid, request.remote_addr)
+                # Sunucunun HWID'si ve HARİCİ IP'si ile kontrol yapılıyor
+                check_license(license_key, server_hwid, server_public_ip)
                 message = f"Lisans durumu yeniden kontrol edildi: {license_status_cache['reason']}"
+
+    # Yeni: last_check_time'ı çekiyoruz (datetime nesnesi olabilir)
+    last_check_time = license_status_cache.get('last_checked')
 
     return render_template(
         'license_management.html',
@@ -712,7 +737,10 @@ def license_management():
         license_status=license_status_cache.get('status'),
         license_reason=license_status_cache.get('reason'),
         server_hwid=server_hwid, # Server HWID'si panele gönderiliyor
-        message=message
+        message=message,
+        # YENİ: full_api_response ve last_check_time'ı gönderiyoruz
+        full_license_data=license_status_cache.get('full_api_response', {}),
+        last_check_time=last_check_time
     )
 
 # --- LİSANS YÖNETİMİ BÖLÜMÜ SONU ---
@@ -809,7 +837,7 @@ def general_settings():
 def check_status_for_client():
     """
     Client bilgisayarlarının bağlanacağı dahili API.
-    Anakart Seri Numarası ve İstemci IP adresi (Python sunucunun IP'si) kontrol edilerek durumu döndürür.
+    Lisans kontrolü için sunucunun HWID'sini ve HARİCİ IP'sini kullanır.
     """
     global license_status_cache
     
@@ -820,14 +848,19 @@ def check_status_for_client():
         license_key = settings.get('license_key', '')
         if license_key:
             server_hwid = get_hwid()
-            # Lisans kontrolü için sunucunun kendi IP adresini kullan
-            check_license(license_key, server_hwid, request.remote_addr)
+            server_public_ip = get_public_ip_from_server() # Sunucunun HARİCİ IP'sini çek
+            
+            # Lisans kontrolü için sunucunun HWID ve HARİCİ IP adreslerini kullan
+            check_license(license_key, server_hwid, server_public_ip)
 
     if license_status_cache.get('status') == 'valid':
         return jsonify({"status": "ok"})
     else:
-        # Client'a detaylı sebep göndermeye gerek yok, sadece 'error' yeterli.
-        return jsonify({"status": "error"}), 403 # 403 Forbidden (Yasaklandı)
+        # Hata durumunda tam API yanıtını (debug dahil) istemciye gönder
+        full_response = license_status_cache.get('full_api_response', {})
+        full_response['status'] = 'error' 
+        
+        return jsonify(full_response), 403 
 
 # --- YENİ BÖLÜM SONU ---
 if __name__ == '__main__':

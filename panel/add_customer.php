@@ -2,6 +2,8 @@
 // Bu dosya, index.php tarafından çağrıldığı için config.php zaten dahil edilmiştir.
 
 $name = $email = $phone = $company = $start_date = $end_date = "";
+// YENİ ALANLAR EKLENDİ
+$address = $city = $district = "";
 $form_err = "";
 $form_success = "";
 
@@ -13,6 +15,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_customer'])) {
     $email = trim($_POST['email']);
     $phone = trim($_POST['phone']);
     $company = trim($_POST['company']);
+    // YENİ EKLENEN ALANLAR ALINIYOR
+    $address = trim($_POST['address']);
+    $city = trim($_POST['city']);
+    $district = trim($_POST['district']);
+    
     $start_date = $_POST['start_date'];
     $end_date = $_POST['end_date'];
     
@@ -25,10 +32,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_customer'])) {
     } else {
         
         // 1. Müşteriyi veritabanına ekle
-        $sql_customer = "INSERT INTO customers (name, email, phone, company) VALUES (?, ?, ?, ?)";
+        // SORGUNUN GÜNCELLENMESİ: 7 parametre eklendi
+        $sql_customer = "INSERT INTO customers (name, email, phone, company, address, city, district) VALUES (?, ?, ?, ?, ?, ?, ?)";
         
         if ($stmt_customer = $mysqli->prepare($sql_customer)) {
-            $stmt_customer->bind_param("ssss", $name, $email, $phone, $company);
+            // BAĞLAMANIN GÜNCELLENMESİ: sssssss (name, email, phone, company, address, city, district)
+            $stmt_customer->bind_param("sssssss", $name, $email, $phone, $company, $address, $city, $district);
             
             if ($stmt_customer->execute()) {
                 // Başarılı olursa, eklenen müşterinin ID'sini al
@@ -93,6 +102,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_customer'])) {
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Şirket / Kafe Adı</label>
                 <input type="text" name="company" placeholder="Kafe Adı" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">İl</label>
+                <input type="text" name="city" placeholder="Şehir Adı" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">İlçe</label>
+                <input type="text" name="district" placeholder="İlçe Adı" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-300 mb-2">Adres</label>
+                <textarea name="address" rows="3" placeholder="Açık Adres Bilgisi" class="w-full px-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"></textarea>
             </div>
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Başlangıç Tarihi (*)</label>
