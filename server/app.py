@@ -394,213 +394,368 @@ def admin_index():
 @app.route('/admin/games')
 @license_required
 def list_games():
-    search_query = request.args.get('q', '') 
     conn = get_db_connection()
-    query = "SELECT g.*, GROUP_CONCAT(c.name) as category_names FROM games g LEFT JOIN game_categories gc ON g.id = gc.game_id LEFT JOIN categories c ON gc.category_id = c.id"
-    params = ()
-    if search_query:
-        query += " WHERE g.oyun_adi LIKE ? GROUP BY g.id ORDER BY g.id DESC"
-        params = ('%' + search_query + '%',)
-    else:
-        query += " GROUP BY g.id ORDER BY g.id DESC"
-    games_raw = conn.execute(query, params).fetchall()
-    conn.close()
-    return render_template('manage_games.html', games=games_raw, search_query=search_query)
+    try:
+        search_query = request.args.get('q', '') 
+        
+        # HATA DÜZELTME: Kategori birleştirmesini alt sorgu ile yaparak her oyunun listelenmesini garanti ediyoruz.
+        query = """
+            SELECT 
+                g.id, g.oyun_adi, g.aciklama, g.cover_image, g.youtube_id, g.save_yolu, g.calistirma_tipi, 
+                g.calistirma_verisi, g.cikis_yili, g.pegi, g.oyun_dili, g.launch_script, g.yuzde_yuz_save_path,
+                g.average_rating, g.rating_count, g.click_count,
+                (
+                    SELECT GROUP_CONCAT(c.name) 
+                    FROM game_categories gc
+                    JOIN categories c ON gc.category_id = c.id
+                    WHERE gc.game_id = g.id
+                ) AS category_names
+            FROM games g
+        """
+        params = ()
+        if search_query:
+            query += " WHERE g.oyun_adi LIKE ?"
+            params = ('%' + search_query + '%',)
+        
+        query += " ORDER BY g.id DESC"
+        
+        games_raw = conn.execute(query, params).fetchall()
+        
+        # Nihai kontrol: Row objelerini dict'e çevirip, ID'si olanları alıyoruz.
+        games_filtered = []
+        for g_row in games_raw:
+             g_dict = dict(g_row)
+             if g_dict['id'] is not None:
+                 games_filtered.append(g_dict)
+
+        return render_template('manage_games.html', games=games_filtered, search_query=search_query)
+    finally:
+        if conn:
+            conn.close() # Bağlantıyı kapat
 
 @app.route('/admin/add', methods=['GET', 'POST'])
 @license_required
 def add_game():
     conn = get_db_connection()
-    if request.method == 'POST':
-        form_data = request.form
-        oyun_adi, aciklama, youtube_id, save_yolu, calistirma_tipi, cikis_yili, pegi, oyun_dili, launch_script = \
-            (form_data.get(k) for k in ['oyun_adi', 'aciklama', 'youtube_id', 'save_yolu', 'calistirma_tipi', 'cikis_yili', 'pegi', 'oyun_dili', 'launch_script'])
-        category_ids = request.form.getlist('category_ids')
-        
-        cover_image_filename = ''
-        if 'cover_image' in request.files and request.files['cover_image'].filename:
-            cover_image_filename = convert_to_webp(request.files['cover_image'], app.config['UPLOAD_FOLDER_COVERS'])
+    try: # Bağlantıyı güvence altına al
+        if request.method == 'POST':
+            form_data = request.form
+            oyun_adi, aciklama, youtube_id, save_yolu, calistirma_tipi, cikis_yili, pegi, oyun_dili, launch_script = \
+                (form_data.get(k) for k in ['oyun_adi', 'aciklama', 'youtube_id', 'save_yolu', 'calistirma_tipi', 'cikis_yili', 'pegi', 'oyun_dili', 'launch_script'])
+            category_ids = request.form.getlist('category_ids')
             
-        yuzde_yuz_save_filename = ''
-        if 'yuzde_yuz_save_file' in request.files and request.files['yuzde_yuz_save_file'].filename:
-            file = request.files['yuzde_yuz_save_file']
-            yuzde_yuz_save_filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+            cover_image_filename = ''
+            if 'cover_image' in request.files and request.files['cover_image'].filename:
+                cover_image_filename = convert_to_webp(request.files['cover_image'], app.config['UPLOAD_FOLDER_COVERS'])
+                
+            yuzde_yuz_save_filename = ''
+            if 'yuzde_yuz_save_file' in request.files and request.files['yuzde_yuz_save_file'].filename:
+                file = request.files['yuzde_yuz_save_file']
+                yuzde_yuz_save_filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+                
+            if calistirma_tipi == 'exe':
+                calistirma_verisi = json.dumps({'yol': form_data.get('exe_yol'), 'argumanlar': form_data.get('exe_argumanlar', '')})
+                
+                # YENİ VARSAYILAN BETİK TANIMI BAŞLANGIÇ
+                DEFAULT_LAUNCH_SCRIPT_CLEAN = """@echo off
+set _EXE_PATH="%%EXE_YOLU%%"
+
+:: *****************************************************************
+:: * OYUN BAŞLATMA OTOMATİK SCRIPTİ
+:: * Sunucu Tarafından Otomatik Üretilmiştir.
+:: * %%EXE_YOLU%% (Tam Yol) ve %%EXE_ARGS%% (Argümanlar) değişkenleri kullanılmıştır.
+:: *****************************************************************
+
+:: 1. Kaynak Disk ve Dosya Yolu Bilgisi
+echo Disk: %%~d_EXE_PATH%%
+echo Oyun Klasörü: %%~p_EXE_PATH%%
+echo EXE: %%~nx_EXE_PATH%%
+echo Argümanlar: %%EXE_ARGS%%
+
+:: 2. Örnek Registry Kaydı (Gerekliyse bu bloğu aktif edin)
+:: REG ADD "HKCU\\Software\\OyunAdi" /v "KeyName" /t REG_SZ /d "Deger" /f
+
+:: 3. Oyunu Başlat
+start "" "%%EXE_YOLU%%" %%EXE_ARGS%%
+
+:: NOT: Programı çalıştırmadan önce ek komutlar ekleyebilirsiniz.
+"""
+
+                # Eski varsayılanları kontrol etmek için örnekler
+                old_default_content = """@echo off
+
+:: *****************************************************************
+:: * OYUN BAŞLATMA OTOMATİK SCRIPTİ
+:: * Sunucu Tarafından Otomatik Üretilmiştir.
+:: * %EXE_YOLU% ve %EXE_ARGS% değişkenleri otomatik doldurulur.
+:: *****************************************************************
+
+:: 1. Kaynak Disk ve Dosya Yolu Bilgisi
+echo Oyun Yolu: %EXE_YOLU%
+echo Argümanlar: %EXE_ARGS%
+
+:: 2. Örnek Registry Kaydı (Gerekliyse bu bloğu aktif edin)
+:: REG ADD "HKCU\Software\OyunAdi" /v "KeyName" /t REG_SZ /d "Deger" /f
+
+:: 3. Oyunu Başlat
+start "" "%EXE_YOLU%" %EXE_ARGS%
+
+:: NOT: Programı çalıştırmadan önce ek komutlar ekleyebilirsiniz.
+"""
+                simple_old_default = 'start "" "%EXE_YOLU%" %EXE_ARGS%'
+                
+                # Eğer betik boşsa veya eski varsayılan içeriklerden biriyse yeni betiği kullan
+                if not launch_script or launch_script.strip() in [simple_old_default, old_default_content.strip(), old_default_content.replace('\\', '').strip()]: 
+                    launch_script = DEFAULT_LAUNCH_SCRIPT_CLEAN.strip()
+                # YENİ VARSAYILAN BETİK TANIMI SONU
+            else: # steam
+                calistirma_verisi, launch_script = json.dumps({'app_id': form_data.get('steam_app_id')}), None
+                
+            cursor = conn.cursor()
+            cursor.execute(''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_path) 
+                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ''', 
+                           (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_filename))
+            new_game_id = cursor.lastrowid
             
-        if calistirma_tipi == 'exe':
-            calistirma_verisi = json.dumps({'yol': form_data.get('exe_yol'), 'argumanlar': form_data.get('exe_argumanlar', '')})
-            if not launch_script or not launch_script.strip(): 
-                launch_script = 'start "" "%EXE_YOLU%" %EXE_ARGS%'
-        else: # steam
-            calistirma_verisi, launch_script = json.dumps({'app_id': form_data.get('steam_app_id')}), None
+            # HATA DÜZELTME: category_ids listesindeki tekrar eden ID'leri kaldır ve int'e çevir
+            if category_ids:
+                # String ID'leri integer'a çevirip set ile benzersiz yap
+                unique_category_ids = {int(cat_id) for cat_id in category_ids}
+                conn.executemany('INSERT INTO game_categories (game_id, category_id) VALUES (?, ?)', [(new_game_id, cat_id) for cat_id in unique_category_ids])
             
-        cursor = conn.cursor()
-        cursor.execute(''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_path) 
-                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ''', 
-                       (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_filename))
-        new_game_id = cursor.lastrowid
-        
-        if category_ids:
-            conn.executemany('INSERT INTO game_categories (game_id, category_id) VALUES (?, ?)', [(new_game_id, cat_id) for cat_id in category_ids])
-        
-        if 'gallery_images' in request.files:
-            folder_name = get_gallery_folder_name(oyun_adi)
-            for file in request.files.getlist('gallery_images'):
-                if file and file.filename:
-                    path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
-                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, path))
-        
-        conn.commit()
-        conn.close()
-        return redirect(url_for('list_games'))
-        
-    categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
-    conn.close()
-    return render_template('add_game.html', categories=categories)
+            if 'gallery_images' in request.files:
+                folder_name = get_gallery_folder_name(oyun_adi)
+                for file in request.files.getlist('gallery_images'):
+                    if file and file.filename:
+                        path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
+                        conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, path))
+            
+            conn.commit()
+            return redirect(url_for('list_games'))
+            
+        categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
+        return render_template('add_game.html', categories=categories)
+    finally: # Bağlantı, ne olursa olsun burada kapatılır
+        if conn:
+            conn.close()
 
 @app.route('/admin/edit/<int:game_id>', methods=['GET', 'POST'])
 @license_required
 def edit_game(game_id):
     conn = get_db_connection()
-    if request.method == 'POST':
-        form_data = request.form
-        oyun_adi, aciklama, youtube_id, save_yolu, calistirma_tipi, cikis_yili, pegi, oyun_dili, launch_script = \
-            (form_data.get(k) for k in ['oyun_adi', 'aciklama', 'youtube_id', 'save_yolu', 'calistirma_tipi', 'cikis_yili', 'pegi', 'oyun_dili', 'launch_script'])
-        category_ids = request.form.getlist('category_ids')
-        
-        cover_image_filename = form_data['current_cover_image']
-        if 'cover_image' in request.files and request.files['cover_image'].filename:
-            cover_image_filename = convert_to_webp(request.files['cover_image'], app.config['UPLOAD_FOLDER_COVERS'])
+    try: # Bağlantıyı güvence altına al
+        if request.method == 'POST':
+            form_data = request.form
+            oyun_adi, aciklama, youtube_id, save_yolu, calistirma_tipi, cikis_yili, pegi, oyun_dili, launch_script = \
+                (form_data.get(k) for k in ['oyun_adi', 'aciklama', 'youtube_id', 'save_yolu', 'calistirma_tipi', 'cikis_yili', 'pegi', 'oyun_dili', 'launch_script'])
+            category_ids = request.form.getlist('category_ids')
             
-        yuzde_yuz_save_filename = form_data['current_yuzde_yuz_save_file']
-        if 'yuzde_yuz_save_file' in request.files and request.files['yuzde_yuz_save_file'].filename:
-            file = request.files['yuzde_yuz_save_file']
-            yuzde_yuz_save_filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
-            
-        folder_name = get_gallery_folder_name(oyun_adi)
-        if request.form.getlist('delete_gallery'):
-            for path in request.form.getlist('delete_gallery'):
-                conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (path, game_id))
-                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], path))
-                except OSError as e: print(f"Dosya silinemedi: {e}")
+            cover_image_filename = form_data['current_cover_image']
+            if 'cover_image' in request.files and request.files['cover_image'].filename:
+                cover_image_filename = convert_to_webp(request.files['cover_image'], app.config['UPLOAD_FOLDER_COVERS'])
                 
-        if 'gallery_images' in request.files:
-            for file in request.files.getlist('gallery_images'):
-                if file and file.filename:
-                    path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
-                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, path))
-        
-        if calistirma_tipi == 'exe':
-            calistirma_verisi = json.dumps({'yol': form_data.get('exe_yol'), 'argumanlar': form_data.get('exe_argumanlar', '')})
-            if not launch_script or not launch_script.strip():
-                launch_script = 'start "" "%EXE_YOLU%" %EXE_ARGS%'
-        else: # steam
-            calistirma_verisi, launch_script = json.dumps({'app_id': form_data.get('steam_app_id')}), None
-            
-        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, oyun_dili=?, launch_script=?, yuzde_yuz_save_path=? WHERE id=? '''
-        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_filename, game_id))
-        
-        conn.execute('DELETE FROM game_categories WHERE game_id = ?', (game_id,))
-        if category_ids:
-            conn.executemany('INSERT INTO game_categories (game_id, category_id) VALUES (?, ?)', [(game_id, cat_id) for cat_id in category_ids])
+            yuzde_yuz_save_filename = form_data['current_yuzde_yuz_save_file']
+            if 'yuzde_yuz_save_file' in request.files and request.files['yuzde_yuz_save_file'].filename:
+                file = request.files['yuzde_yuz_save_file']
+                yuzde_yuz_save_filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
                 
-        conn.commit()
-        conn.close()
-        return redirect(url_for('list_games'))
+            folder_name = get_gallery_folder_name(oyun_adi)
+            if request.form.getlist('delete_gallery'):
+                for path in request.form.getlist('delete_gallery'):
+                    conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (path, game_id))
+                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], path))
+                    except OSError as e: print(f"Dosya silinemedi: {e}")
+                    
+            if 'gallery_images' in request.files:
+                for file in request.files.getlist('gallery_images'):
+                    if file and file.filename:
+                        path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
+                        conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, path))
+            
+            if calistirma_tipi == 'exe':
+                calistirma_verisi = json.dumps({'yol': form_data.get('exe_yol'), 'argumanlar': form_data.get('exe_argumanlar', '')})
+                
+                # YENİ VARSAYILAN BETİK TANIMI BAŞLANGIÇ
+                DEFAULT_LAUNCH_SCRIPT_CLEAN = """@echo off
+set _EXE_PATH="%%EXE_YOLU%%"
+
+:: *****************************************************************
+:: * OYUN BAŞLATMA OTOMATİK SCRIPTİ
+:: * Sunucu Tarafından Otomatik Üretilmiştir.
+:: * %%EXE_YOLU%% (Tam Yol) ve %%EXE_ARGS%% (Argümanlar) değişkenleri kullanılmıştır.
+:: *****************************************************************
+
+:: 1. Kaynak Disk ve Dosya Yolu Bilgisi
+echo Disk: %%~d_EXE_PATH%%
+echo Oyun Klasörü: %%~p_EXE_PATH%%
+echo EXE: %%~nx_EXE_PATH%%
+echo Argümanlar: %%EXE_ARGS%%
+
+:: 2. Örnek Registry Kaydı (Gerekliyse bu bloğu aktif edin)
+:: REG ADD "HKCU\\Software\\OyunAdi" /v "KeyName" /t REG_SZ /d "Deger" /f
+
+:: 3. Oyunu Başlat
+start "" "%%EXE_YOLU%%" %%EXE_ARGS%%
+
+:: NOT: Programı çalıştırmadan önce ek komutlar ekleyebilirsiniz.
+"""
+
+                # Eski varsayılanları kontrol etmek için örnekler
+                old_default_content = """@echo off
+
+:: *****************************************************************
+:: * OYUN BAŞLATMA OTOMATİK SCRIPTİ
+:: * Sunucu Tarafından Otomatik Üretilmiştir.
+:: * %EXE_YOLU% ve %EXE_ARGS% değişkenleri otomatik doldurulur.
+:: *****************************************************************
+
+:: 1. Kaynak Disk ve Dosya Yolu Bilgisi
+echo Oyun Yolu: %EXE_YOLU%
+echo Argümanlar: %EXE_ARGS%
+
+:: 2. Örnek Registry Kaydı (Gerekliyse bu bloğu aktif edin)
+:: REG ADD "HKCU\Software\OyunAdi" /v "KeyName" /t REG_SZ /d "Deger" /f
+
+:: 3. Oyunu Başlat
+start "" "%EXE_YOLU%" %EXE_ARGS%
+
+:: NOT: Programı çalıştırmadan önce ek komutlar ekleyebilirsiniz.
+"""
+                simple_old_default = 'start "" "%EXE_YOLU%" %EXE_ARGS%'
+                
+                # Eğer betik boşsa veya eski varsayılan içeriklerden biriyse yeni betiği kullan
+                if not launch_script or launch_script.strip() in [simple_old_default, old_default_content.strip(), old_default_content.replace('\\', '').strip()]:
+                    launch_script = DEFAULT_LAUNCH_SCRIPT_CLEAN.strip()
+                # YENİ VARSAYILAN BETİK TANIMI SONU
+            else: # steam
+                calistirma_verisi, launch_script = json.dumps({'app_id': form_data.get('steam_app_id')}), None
+                
+            sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, oyun_dili=?, launch_script=?, yuzde_yuz_save_path=? WHERE id=? '''
+            conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_filename, game_id))
+            
+            conn.execute('DELETE FROM game_categories WHERE game_id = ?', (game_id,))
+            # HATA DÜZELTME: category_ids listesindeki tekrar eden ID'leri kaldır ve int'e çevir
+            if category_ids:
+                unique_category_ids = {int(cat_id) for cat_id in category_ids} # Set comprehension ile benzersiz ID'leri topla
+                conn.executemany('INSERT INTO game_categories (game_id, category_id) VALUES (?, ?)', [(game_id, cat_id) for cat_id in unique_category_ids])
+            # HATA DÜZELTME SONU
+                    
+            conn.commit()
+            return redirect(url_for('list_games'))
+            
+        game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
+        if not game: return "Oyun bulunamadı!", 404
         
-    game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
-    if not game: return "Oyun bulunamadı!", 404
-    
-    game_data = dict(game)
-    game_data['calistirma_verisi_dict'] = json.loads(game['calistirma_verisi'] or '{}')
-    categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
-    gallery_images = conn.execute('SELECT * FROM gallery_images WHERE game_id = ?', (game_id,)).fetchall()
-    game_category_ids = {row['category_id'] for row in conn.execute('SELECT category_id FROM game_categories WHERE game_id = ?', (game_id,)).fetchall()}
-    conn.close()
-    
-    return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images, game_category_ids=game_category_ids)
+        game_data = dict(game)
+        game_data['calistirma_verisi_dict'] = json.loads(game['calistirma_verisi'] or '{}')
+        categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
+        gallery_images = conn.execute('SELECT * FROM gallery_images WHERE game_id = ?', (game_id,)).fetchall()
+        game_category_ids = {row['category_id'] for row in conn.execute('SELECT category_id FROM game_categories WHERE game_id = ?', (game_id,)).fetchall()}
+        
+        return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images, game_category_ids=game_category_ids)
+    finally: # Bağlantı, ne olursa olsun burada kapatılır
+        if conn:
+            conn.close()
 
 @app.route('/admin/delete/<int:game_id>', methods=['POST'])
 @license_required
 def delete_game(game_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM games WHERE id = ?', (game_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('list_games'))
+    try:
+        conn.execute('DELETE FROM games WHERE id = ?', (game_id,))
+        conn.commit()
+        return redirect(url_for('list_games'))
+    finally:
+        if conn:
+            conn.close()
+
 
 @app.route('/admin/categories', methods=['GET', 'POST'])
 @license_required
 def manage_categories():
     conn = get_db_connection()
-    if request.method == 'POST':
-        category_name = request.form['name']
-        category_icon = request.form.get('icon', '🎮')
-        if category_name:
-            try:
-                conn.execute('INSERT INTO categories (name, icon) VALUES (?, ?)', (category_name, category_icon))
-                conn.commit()
-            except sqlite3.IntegrityError: pass
-        return redirect(url_for('manage_categories'))
-    categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
-    conn.close()
-    return render_template('manage_categories.html', categories=categories)
+    try:
+        if request.method == 'POST':
+            category_name = request.form['name']
+            category_icon = request.form.get('icon', '🎮')
+            if category_name:
+                try:
+                    conn.execute('INSERT INTO categories (name, icon) VALUES (?, ?)', (category_name, category_icon))
+                    conn.commit()
+                except sqlite3.IntegrityError: pass
+            return redirect(url_for('manage_categories'))
+        categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
+        return render_template('manage_categories.html', categories=categories)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/categories/edit/<int:category_id>', methods=['GET', 'POST'])
 @license_required
 def edit_category(category_id):
     conn = get_db_connection()
-    if request.method == 'POST':
-        new_name = request.form['name']
-        new_icon = request.form.get('icon', '🎮')
-        if new_name:
-            conn.execute('UPDATE categories SET name = ?, icon = ? WHERE id = ?', (new_name, new_icon, category_id))
-            conn.commit()
-        conn.close()
-        return redirect(url_for('manage_categories'))
-    category = conn.execute('SELECT * FROM categories WHERE id = ?', (category_id,)).fetchone()
-    conn.close()
-    if not category: return "Kategori bulunamadı!", 404
-    return render_template('edit_category.html', category=category)
+    try:
+        if request.method == 'POST':
+            new_name = request.form['name']
+            new_icon = request.form.get('icon', '🎮')
+            if new_name:
+                conn.execute('UPDATE categories SET name = ?, icon = ? WHERE id = ?', (new_name, new_icon, category_id))
+                conn.commit()
+            return redirect(url_for('manage_categories'))
+        category = conn.execute('SELECT * FROM categories WHERE id = ?', (category_id,)).fetchone()
+        if not category: return "Kategori bulunamadı!", 404
+        return render_template('edit_category.html', category=category)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/categories/delete/<int:category_id>', methods=['POST'])
 @license_required
 def delete_category(category_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM categories WHERE id = ?', (category_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('manage_categories'))
+    try:
+        conn.execute('DELETE FROM categories WHERE id = ?', (category_id,))
+        conn.commit()
+        return redirect(url_for('manage_categories'))
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/users')
 @license_required
 def manage_users():
     conn = get_db_connection()
-    users = conn.execute('SELECT id, username FROM users ORDER BY username ASC').fetchall()
-    conn.close()
-    return render_template('manage_users.html', users=users)
+    try:
+        users = conn.execute('SELECT id, username FROM users ORDER BY username ASC').fetchall()
+        return render_template('manage_users.html', users=users)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
 @license_required
 def edit_user(user_id):
     conn = get_db_connection()
-    if request.method == 'POST':
-        new_username = request.form.get('username', '').strip()
-        new_password = request.form.get('new_password', '')
-        if new_username and len(new_username) >= 3:
-            if not conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone():
-                conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, user_id))
+    try:
+        if request.method == 'POST':
+            new_username = request.form.get('username', '').strip()
+            new_password = request.form.get('new_password', '')
+            if new_username and len(new_username) >= 3:
+                if not conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone():
+                    conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, user_id))
+                    conn.commit()
+            if new_password and len(new_password) >= 5:
+                conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (generate_password_hash(new_password), user_id))
                 conn.commit()
-        if new_password and len(new_password) >= 5:
-            conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (generate_password_hash(new_password), user_id))
-            conn.commit()
-        conn.close()
-        return redirect(url_for('manage_users'))
-    user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
-    conn.close()
-    if not user: return "Kullanıcı bulunamadı!", 404
-    return render_template('edit_user.html', user=user)
+            return redirect(url_for('manage_users'))
+        user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
+        if not user: return "Kullanıcı bulunamadı!", 404
+        return render_template('edit_user.html', user=user)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
 @license_required
@@ -608,82 +763,95 @@ def delete_user(user_id):
     if user_id == 1: 
         return redirect(url_for('manage_users'))
     conn = get_db_connection()
-    conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
-    conn.commit()
-    conn.close()
-    user_save_dir = os.path.join(app.config['SAVE_FOLDER'], str(user_id))
-    if os.path.exists(user_save_dir): 
-        shutil.rmtree(user_save_dir)
-    return redirect(url_for('manage_users'))
+    try:
+        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        user_save_dir = os.path.join(app.config['SAVE_FOLDER'], str(user_id))
+        if os.path.exists(user_save_dir): 
+            shutil.rmtree(user_save_dir)
+        return redirect(url_for('manage_users'))
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/sliders')
 @license_required
 def manage_sliders():
     conn = get_db_connection()
-    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id ORDER BY s.display_order ASC').fetchall()
-    conn.close()
-    return render_template('manage_sliders.html', sliders=sliders)
+    try:
+        sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id ORDER BY s.display_order ASC').fetchall()
+        return render_template('manage_sliders.html', sliders=sliders)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/slider/add', methods=['GET', 'POST'])
 @license_required
 def add_slider():
     conn = get_db_connection()
-    if request.method == 'POST':
-        form = request.form
-        bg_image = ''
-        if 'background_image' in request.files and request.files['background_image'].filename:
-            bg_image = convert_to_webp(request.files['background_image'], app.config['UPLOAD_FOLDER_SLIDER'])
+    try:
+        if request.method == 'POST':
+            form = request.form
+            bg_image = ''
+            if 'background_image' in request.files and request.files['background_image'].filename:
+                bg_image = convert_to_webp(request.files['background_image'], app.config['UPLOAD_FOLDER_SLIDER'])
+            
+            conn.execute('''INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                           (form.get('game_id') or None, form.get('badge_text'), form.get('title'), form.get('description'), 
+                            bg_image, 1 if 'is_active' in form else 0, form.get('display_order', 0)))
+            conn.commit()
+            return redirect(url_for('manage_sliders'))
         
-        conn.execute('''INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)''', 
-                       (form.get('game_id') or None, form.get('badge_text'), form.get('title'), form.get('description'), 
-                        bg_image, 1 if 'is_active' in form else 0, form.get('display_order', 0)))
-        conn.commit()
-        conn.close()
-        return redirect(url_for('manage_sliders'))
-    
-    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
-    conn.close()
-    return render_template('add_slider.html', games=games)
+        games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
+        return render_template('add_slider.html', games=games)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/slider/edit/<int:slider_id>', methods=['GET', 'POST'])
 @license_required
 def edit_slider(slider_id):
     conn = get_db_connection()
-    if request.method == 'POST':
-        form = request.form
-        bg_image = form.get('current_background_image')
-        if 'background_image' in request.files and request.files['background_image'].filename:
-            if bg_image:
-                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], bg_image))
-                except OSError: pass
-            bg_image = convert_to_webp(request.files['background_image'], app.config['UPLOAD_FOLDER_SLIDER'])
-            
-        conn.execute('''UPDATE slider SET game_id=?, badge_text=?, title=?, description=?, background_image=?, is_active=?, display_order=? 
-                        WHERE id=?''', 
-                       (form.get('game_id') or None, form.get('badge_text'), form.get('title'), form.get('description'), 
-                        bg_image, 1 if 'is_active' in form else 0, form.get('display_order', 0), slider_id))
-        conn.commit()
-        conn.close()
-        return redirect(url_for('manage_sliders'))
-    
-    slider = conn.execute('SELECT * FROM slider WHERE id = ?', (slider_id,)).fetchone()
-    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
-    conn.close()
-    return render_template('edit_slider.html', slider=slider, games=games)
+    try:
+        if request.method == 'POST':
+            form = request.form
+            bg_image = form.get('current_background_image')
+            if 'background_image' in request.files and request.files['background_image'].filename:
+                if bg_image:
+                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], bg_image))
+                    except OSError: pass
+                bg_image = convert_to_webp(request.files['background_image'], app.config['UPLOAD_FOLDER_SLIDER'])
+                
+            conn.execute('''UPDATE slider SET game_id=?, badge_text=?, title=?, description=?, background_image=?, is_active=?, display_order=? 
+                            WHERE id=?''', 
+                           (form.get('game_id') or None, form.get('badge_text'), form.get('title'), form.get('description'), 
+                            bg_image, 1 if 'is_active' in form else 0, form.get('display_order', 0), slider_id))
+            conn.commit()
+            return redirect(url_for('manage_sliders'))
+        
+        slider = conn.execute('SELECT * FROM slider WHERE id = ?', (slider_id,)).fetchone()
+        games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
+        return render_template('edit_slider.html', slider=slider, games=games)
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/slider/delete/<int:slider_id>', methods=['POST'])
 @license_required
 def delete_slider(slider_id):
     conn = get_db_connection()
-    slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
-    if slider and slider['background_image']:
-        try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
-        except OSError: pass
-    conn.execute('DELETE FROM slider WHERE id = ?', (slider_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('manage_sliders'))
+    try:
+        slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
+        if slider and slider['background_image']:
+            try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
+            except OSError: pass
+        conn.execute('DELETE FROM slider WHERE id = ?', (slider_id,))
+        conn.commit()
+        return redirect(url_for('manage_sliders'))
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/ratings')
 @license_required
@@ -692,9 +860,12 @@ def manage_ratings():
     if sort_by not in ['oyun_adi', 'average_rating', 'rating_count']: sort_by = 'oyun_adi'
     if order not in ['asc', 'desc']: order = 'asc'
     conn = get_db_connection()
-    games = conn.execute(f"SELECT id, oyun_adi, average_rating, rating_count FROM games ORDER BY {sort_by} {order}").fetchall()
-    conn.close()
-    return render_template('manage_ratings.html', games=games, sort_by=sort_by, next_order='desc' if order == 'asc' else 'asc')
+    try:
+        games = conn.execute(f"SELECT id, oyun_adi, average_rating, rating_count FROM games ORDER BY {sort_by} {order}").fetchall()
+        return render_template('manage_ratings.html', games=games, sort_by=sort_by, next_order='desc' if order == 'asc' else 'asc')
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/statistics')
 @license_required
@@ -703,28 +874,37 @@ def manage_statistics():
     if sort_by not in ['oyun_adi', 'click_count']: sort_by = 'click_count'
     if order not in ['asc', 'desc']: order = 'desc'
     conn = get_db_connection()
-    games = conn.execute(f"SELECT id, oyun_adi, click_count FROM games ORDER BY {sort_by} {order}").fetchall()
-    conn.close()
-    return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order='desc' if order == 'asc' else 'asc')
+    try:
+        games = conn.execute(f"SELECT id, oyun_adi, click_count FROM games ORDER BY {sort_by} {order}").fetchall()
+        return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order='desc' if order == 'asc' else 'asc')
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/statistics/reset_all', methods=['POST'])
 @license_required
 def reset_all_clicks():
     conn = get_db_connection()
-    conn.execute('UPDATE games SET click_count = 0')
-    conn.commit()
-    conn.close()
-    return redirect(url_for('manage_statistics'))
+    try:
+        conn.execute('UPDATE games SET click_count = 0')
+        conn.commit()
+        return redirect(url_for('manage_statistics'))
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/ratings/reset_all', methods=['POST'])
 @license_required
 def reset_all_ratings():
     conn = get_db_connection()
-    conn.execute('DELETE FROM user_ratings')
-    conn.execute('UPDATE games SET average_rating = 0, rating_count = 0')
-    conn.commit()
-    conn.close()
-    return redirect(url_for('manage_ratings'))
+    try:
+        conn.execute('DELETE FROM user_ratings')
+        conn.execute('UPDATE games SET average_rating = 0, rating_count = 0')
+        conn.commit()
+        return redirect(url_for('manage_ratings'))
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/admin/download_games')
 @license_required

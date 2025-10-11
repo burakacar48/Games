@@ -166,6 +166,30 @@
     </div>
     
     <script>
+        // YENİ: Varsayılan betik şablonu (Batch ayrıştırma komutları ile)
+        const DEFAULT_SCRIPT_TEMPLATE = `@echo off
+set _EXE_PATH="%%EXE_YOLU%%"
+
+:: *****************************************************************
+:: * OYUN BAŞLATMA OTOMATİK SCRIPTİ
+:: * Sunucu Tarafından Otomatik Üretilmiştir.
+:: * %%EXE_YOLU%% (Tam Yol) ve %%EXE_ARGS%% (Argümanlar) değişkenleri kullanılmıştır.
+:: *****************************************************************
+
+:: 1. Kaynak Disk ve Dosya Yolu Bilgisi
+echo Disk: %%~d_EXE_PATH%%
+echo Oyun Klasörü: %%~p_EXE_PATH%%
+echo EXE: %%~nx_EXE_PATH%%
+echo Argümanlar: %%EXE_ARGS%%
+
+:: 2. Örnek Registry Kaydı (Gerekliyse bu bloğu aktif edin)
+:: REG ADD "HKCU\\Software\\OyunAdi" /v "KeyName" /t REG_SZ /d "Deger" /f
+
+:: 3. Oyunu Başlat
+start "" "%%EXE_YOLU%%" %%EXE_ARGS%%
+
+:: NOT: Programı çalıştırmadan önce ek komutlar ekleyebilirsiniz.
+`;
         function updateCalistirmaInputs() {
             const tip = document.getElementById('calistirma_tipi').value;
             document.getElementById('exe_fields').style.display = 'none';
@@ -182,11 +206,35 @@
         function handleFileLabelUpdate(inputId, nameId, isExePath = false) {
             document.getElementById(inputId).addEventListener('change', (event) => {
                 const display = document.getElementById(nameId);
+                const launchScriptTextarea = document.getElementById('launch_script_textarea');
+                
                 if (event.target.files && event.target.files.length > 0) {
                     if (isExePath) {
                         display.innerHTML = event.target.files[0].name;
                         display.classList.remove('file-path-placeholder');
                         document.getElementById('exe_yol_input').value = event.target.files[0].name;
+
+                        // YENİ MANTIK: EXE dosyası seçildiğinde otomatik doldur.
+                        const currentValue = launchScriptTextarea.value.trim();
+                        // Eski varsayılan formatları kontrol et
+                        const oldDefault1 = 'start "" "%EXE_YOLU%" %EXE_ARGS%';
+                        const oldDefault2 = 'echo Oyun Yolu: %EXE_YOLU%\necho Argümanlar: %EXE_ARGS%'; 
+                        
+                        // Sadece boşsa veya eski varsayılan formattaysa yeni scripti atıyoruz
+                        if (currentValue === '' || currentValue.includes(oldDefault1) || currentValue.includes(oldDefault2)) {
+                            launchScriptTextarea.value = DEFAULT_SCRIPT_TEMPLATE.trim();
+                            
+                            // Eğer CodeMirror instance'ı açıksa, onu da güncelle
+                            try {
+                                const editor = window.CodeMirror && CodeMirror.V.find(document.getElementById('code-editor'));
+                                if (editor) {
+                                    editor.setValue(launchScriptTextarea.value);
+                                }
+                            } catch (e) {
+                                // CodeMirror yoksa sorun yok, sadece textarea güncel kaldı
+                            }
+                        }
+                        
                     } else {
                          display.textContent = event.target.files.length > 1 ? `${event.target.files.length} dosya seçildi` : event.target.files[0].name;
                     }
@@ -195,6 +243,7 @@
                         display.innerHTML = `<span class="file-path-placeholder">Dosya seçmek için tıklayın...</span>`;
                         document.getElementById('exe_yol_input').value = '';
                     } else {
+                        document.getElementById('exe_yol_input').value = '';
                         display.textContent = 'Dosya seçilmedi';
                     }
                 }
@@ -207,12 +256,34 @@
             handleFileLabelUpdate('gallery_images_input_custom', 'gallery_images_name');
             handleFileLabelUpdate('exe_yol_input_file', 'exe_yol_display', true); 
             handleFileLabelUpdate('yuzde_yuz_save_file_input', 'yuzde_yuz_save_file_name');
+            
             const modal = document.getElementById('script-editor-modal');
             const hiddenTextarea = document.getElementById('launch_script_textarea');
-            const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), { lineNumbers: true, mode: 'shell', theme: 'darcula', lineWrapping: true });
-            document.getElementById('open-script-editor').addEventListener('click', () => { editor.setValue(hiddenTextarea.value); modal.style.display = 'flex'; editor.refresh(); });
+            const openScriptButton = document.getElementById('open-script-editor');
+
+            if (window.CodeMirror) { 
+                const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), { 
+                    lineNumbers: true, 
+                    mode: 'shell', 
+                    theme: 'darcula', 
+                    lineWrapping: true 
+                });
+
+                openScriptButton.addEventListener('click', () => { 
+                    editor.setValue(hiddenTextarea.value); 
+                    modal.style.display = 'flex'; 
+                    editor.refresh(); 
+                });
+                document.getElementById('save-script-editor').addEventListener('click', () => { 
+                    hiddenTextarea.value = editor.getValue(); 
+                    modal.style.display = 'none'; 
+                });
+            } else { 
+                openScriptButton.style.display = 'none'; 
+                console.error("KRİTİK HATA: CodeMirror editör betiği yüklenemedi. Script Editörü kullanılamıyor. Lütfen base_admin.html dosyasındaki CDN bağlantılarını kontrol edin.");
+            }
+
             document.getElementById('close-script-editor').addEventListener('click', () => { modal.style.display = 'none'; });
-            document.getElementById('save-script-editor').addEventListener('click', () => { hiddenTextarea.value = editor.getValue(); modal.style.display = 'none'; });
         });
     </script>
 {% endblock %}
