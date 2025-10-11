@@ -137,6 +137,10 @@
                     <i class="fas fa-cog"></i>
                     <span>Genel Ayarlar</span>
                 </a>
+                <a href="{{ url_for('social_media_settings') }}" class="menu-item {% if request.endpoint == 'social_media_settings' %}active{% endif %}">
+                    <i class="fas fa-share-alt"></i>
+                    <span>Sosyal Medya</span>
+                </a>
                 <a href="{{ url_for('license_management') }}" class="menu-item {% if request.endpoint == 'license_management' %}active{% endif %}">
                     <i class="fas fa-key"></i>
                     <span>Lisans Yönetimi</span>

@@ -83,7 +83,12 @@ body {
     justify-content: center;
     gap: 20px;
 }
-.social-section a { color: #666; font-size: 1.2rem; transition: color 0.3s ease, transform 0.3s ease; }
+.social-section a { 
+    color: #666; 
+    font-size: 1.2rem; 
+    transition: all 0.3s ease; /* Çizgi sorununu çözmek için birleştirildi */
+    text-decoration: none; /* Çizgiyi Kaldır */
+}
 .social-section a:hover { color: var(--primary-start); transform: scale(1.2); }
 
 /* Ana İçerik */
@@ -572,4 +577,5 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
+}
 }

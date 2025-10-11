@@ -61,7 +61,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (welcomeModal) welcomeModal.style.display = 'none';
     };
 
-    // === AYARLARI ÇEK VE UYGULA ===
+    // === AYARLARI ÇEK VE UYGULA (GÜNCELLENDİ) ===
     const fetchAndApplySettings = () => {
         fetch(`${SERVER_URL}/api/settings`)
             .then(res => res.json())
@@ -99,6 +99,27 @@ window.addEventListener('DOMContentLoaded', () => {
                         sessionStorage.setItem('welcomeShown', 'true');
                     }
                 }
+                
+                // --- YENİ SOSYAL MEDYA BAĞLANTILARI KISMI BAŞLANGIÇ ---
+                const socialLinks = [
+                    { id: 'social-google', url: settings.social_google },
+                    { id: 'social-instagram', url: settings.social_instagram },
+                    { id: 'social-facebook', url: settings.social_facebook },
+                    { id: 'social-youtube', url: settings.social_youtube }
+                ];
+
+                socialLinks.forEach(link => {
+                    const element = document.getElementById(link.id);
+                    if (element) {
+                        if (link.url && link.url.trim() !== '') {
+                            element.href = link.url;
+                            element.style.display = 'flex'; // Göster
+                        } else {
+                            element.style.display = 'none'; // Gizle
+                        }
+                    }
+                });
+                // --- SOSYAL MEDYA BAĞLANTILARI KISMI SONU ---
             })
             .catch(error => console.error('Ayarlar çekilirken hata oluştu:', error));
     };

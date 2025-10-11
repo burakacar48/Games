@@ -149,7 +149,13 @@ def init_db():
                 ('primary_color_start', '#667eea'), 
                 ('primary_color_end', '#764ba2'),
                 ('welcome_modal_enabled', '1'),
-                ('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.')
+                ('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.'),
+                # YENİ EKLENEN SOSYAL MEDYA AYARLARI BAŞLANGICI
+                ('social_google', 'https://www.google.com'),
+                ('social_instagram', 'https://www.instagram.com'),
+                ('social_facebook', 'https://www.facebook.com'),
+                ('social_youtube', 'https://www.youtube.com'),
+                # YENİ EKLENEN SOSYAL MEDYA AYARLARI SONU
             ]
             cursor.executemany('INSERT INTO settings (key, value) VALUES (?, ?)', sample_settings)
             

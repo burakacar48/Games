@@ -1,0 +1,44 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Sosyal Medya Ayarları{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Sosyal Medya Ayarları</h1>
+    </div>
+    <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">İstemci arayüzündeki sosyal medya ikonlarının bağlantı adreslerini buradan güncelleyebilirsiniz. Boş bırakılan alanlar istemcide gizlenir.</p>
+
+    <div class="form-container">
+        <form method="POST">
+            <div class="section-title">Bağlantılar</div>
+            <div class="form-grid">
+                
+                <div class="form-group full-width">
+                    <label for="social_google"><i class="fab fa-google"></i> Google (Arama Sayfası)</label>
+                    <input type="url" name="social_google" id="social_google" value="{{ settings.social_google }}" placeholder="https://www.google.com/search?q=ZenkaCafe">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="social_instagram"><i class="fab fa-instagram"></i> Instagram</label>
+                    <input type="url" name="social_instagram" id="social_instagram" value="{{ settings.social_instagram }}" placeholder="https://www.instagram.com/ZenkaCafe">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="social_facebook"><i class="fab fa-facebook-f"></i> Facebook</label>
+                    <input type="url" name="social_facebook" id="social_facebook" value="{{ settings.social_facebook }}" placeholder="https://www.facebook.com/ZenkaCafe">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="social_youtube"><i class="fab fa-youtube"></i> YouTube</label>
+                    <input type="url" name="social_youtube" id="social_youtube" value="{{ settings.social_youtube }}" placeholder="https://www.youtube.com/@ZenkaCafe">
+                </div>
+                
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                <i class="fas fa-save"></i>
+                Ayarları Kaydet
+            </button>
+        </form>
+    </div>
+{% endblock %}

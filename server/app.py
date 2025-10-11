@@ -67,17 +67,172 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
-def convert_to_webp(file, upload_folder):
+def convert_to_webp(file, upload_folder, sub_folder=None):
     filename = secure_filename(file.filename)
     base, ext = os.path.splitext(filename)
     webp_filename = f"{base}.webp"
-    file_path = os.path.join(upload_folder, webp_filename)
     
+    if sub_folder and upload_folder == app.config['UPLOAD_FOLDER_GALLERY']:
+        # Alt klasör yolunu oluştur ve yoksa dizini oluştur
+        final_dir = os.path.join(upload_folder, sub_folder)
+        if not os.path.exists(final_dir):
+            os.makedirs(final_dir)
+        file_path = os.path.join(final_dir, webp_filename)
+        # DB'de saklanacak yol: klasör_adı/dosya_adı.webp (URL uyumluluğu için / kullan)
+        stored_path = os.path.join(sub_folder, webp_filename).replace('\\', '/')
+    else:
+        file_path = os.path.join(upload_folder, webp_filename)
+        stored_path = webp_filename
+        
     image = Image.open(file.stream)
     image.save(file_path, 'webp', quality=85)
     
-    return webp_filename
+    return stored_path
+
+# GÜNCELLENDİ: Türkçe karakterleri ve yasadışı Windows karakterlerini temizler.
+def get_gallery_folder_name(game_name):
+    # 1. Türkçe karakterleri çevir
+    char_map = {
+        'ğ': 'g', 'ı': 'i', 'ş': 's', 'ç': 'c', 'ö': 'o', 'ü': 'u',
+        'Ğ': 'G', 'İ': 'I', 'Ş': 'S', 'Ç': 'C', 'Ö': 'O', 'Ü': 'U',
+    }
+    cleaned_name = ""
+    for char in game_name:
+        cleaned_name += char_map.get(char, char)
+        
+    # 2. Windows'ta yasadışı karakterleri ve boşlukları kaldır (önceki isteğe uyum için)
+    # Yasadışı karakterler: < > : " / \ | ? * ve boşluk
+    illegal_chars = ' <>:"/\\|?*' # Boşluk karakteri de burada kaldırılır.
     
+    final_name = "".join(c for c in cleaned_name if c not in illegal_chars)
+    
+    # Temizlenmiş ismi döndür (örnek: "God of War: Ragnarök" -> "GodofWarRagnarok")
+    return final_name.strip()
+    
+# --- LİSANS YÖNETİMİ BÖLÜMÜ ---
+
+# Lisans durumunu global bir değişkende tutalım
+license_status_cache = {
+    "status": None,
+    "reason": "Henüz kontrol edilmedi",
+    "last_checked": None
+}
+
+# Donanım Kimliği (HWID) oluşturma fonksiyonu: Anakart Seri Numarası çekiliyor
+def get_hwid():
+    # Anakart seri numarasını çekmek için PowerShell komutunu kullan
+    try:
+        # PowerShell komutunu çalıştır
+        command = ['powershell', '-Command', 'Get-CimInstance -ClassName Win32_BaseBoard | Select-Object SerialNumber']
+        # CREATE_NO_WINDOW bayrağı kaldırıldı, böylece hatayı daha iyi görebiliriz
+        process = subprocess.run(command, 
+                                 capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW) 
+        
+        output = process.stdout
+        
+        # PowerShell çıktısını ayıkla (Header, -----, Serial Number)
+        lines = [line.strip() for line in output.splitlines() if line.strip()]
+        
+        # Seri numarası genellikle 2. veya 3. satırda bulunur
+        if len(lines) >= 3:
+            # SerialNumber header ve ayırıcı çizgiden sonraki satırı hedefle
+            # Genellikle 2. indexteki satır Seri numarasıdır (0=Header, 1=-----, 2=Serial)
+            serial_number = lines[2].strip()
+            
+            if serial_number and serial_number != 'To be filled by O.E.M.' and serial_number != 'None': 
+                return serial_number.replace(" ", "").strip()
+        
+    except Exception as e:
+        # Eğer PowerShell başarısız olursa, hatayı logla
+        print(f"Anakart Seri Numarası PowerShell ile çekilemedi: {e}")
+        pass
+    
+    # Başarısız olursa boş string döndür
+    return "" 
+    
+# Yeni: Flask sunucusunun harici IP adresini çeken fonksiyon
+def get_public_ip_from_server():
+    """Flask sunucusunun çalıştığı makinenin harici IP'sini bir API aracılığıyla çeker."""
+    try:
+        # Flask, harici bir IP servisini çağırır
+        response = requests.get('https://api.ipify.org?format=json', timeout=5)
+        if response.status_code == 200:
+            return response.json()['ip']
+    except requests.RequestException as e:
+        print(f"UYARI: Sunucu harici IP alımında hata: {e}")
+        pass
+    
+    # Başarısız olursa boş string döndürür.
+    return "" 
+
+# Lisans anahtarını ve istemci IP'sini kontrol eden fonksiyon güncellendi
+def check_license(license_key, hwid, client_ip):
+    """PHP API'sini çağırarak lisansı Anakart Seri No ve IP ile doğrular."""
+    global license_status_cache
+    api_url = "https://onurmedya.tr/burak/api.php"
+    payload = {
+        "license_key": license_key,
+        "hwid": hwid, 
+        "client_ip": client_ip 
+    }
+    try:
+        response = requests.post(api_url, json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            license_status_cache['status'] = data.get('status')
+            license_status_cache['reason'] = data.get('reason') or data.get('message', 'Durum bilinmiyor.')
+            license_status_cache['full_api_response'] = data # Tüm API yanıtını kaydet
+        else:
+            license_status_cache['status'] = 'invalid'
+            license_status_cache['reason'] = f'API sunucusuna ulaşılamadı (HTTP {response.status_code}).'
+            license_status_cache['full_api_response'] = {'debug': 'HTTP Status Error'}
+    except requests.RequestException as e:
+        license_status_cache['status'] = 'invalid'
+        license_status_cache['reason'] = f'API bağlantı hatası: {e}'
+        license_status_cache['full_api_response'] = {'debug': f'Request Exception: {str(e)}'}
+    
+    license_status_cache['last_checked'] = datetime.now()
+    return license_status_cache
+
+# --- YENİ EKLENEN LİSANS GEREKLİ DEKORATÖRÜ ---
+def license_required(f):
+    """Lisans geçerli değilse, kullanıcıyı Lisans Yönetimi sayfasına yönlendirir."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        global license_status_cache
+        
+        current_status = license_status_cache.get('status')
+        last_checked = license_status_cache.get('last_checked')
+        
+        # 1. Lisans anahtarını al (her durumda gerekli)
+        settings = get_all_settings()
+        license_key = settings.get('license_key', '')
+
+        # 2. Eğer durum geçerli değilse, anahtar yoksa veya son kontrol üzerinden süre geçtiyse yeniden kontrol et
+        time_to_recheck = not last_checked or (datetime.now() - last_checked) > timedelta(hours=1)
+        
+        if current_status != 'valid' or not license_key or time_to_recheck:
+            
+            if license_key:
+                server_hwid = get_hwid()
+                server_public_ip = get_public_ip_from_server() 
+                check_license(license_key, server_hwid, server_public_ip)
+                current_status = license_status_cache.get('status')
+            else:
+                # Anahtar yoksa geçersiz say
+                license_status_cache['status'] = 'invalid' 
+                license_status_cache['reason'] = 'Lisans Anahtarı Ayarlanmamış'
+                current_status = 'invalid'
+                
+        # 3. Eğer lisans hala geçerli değilse yönlendir
+        if current_status != 'valid':
+            # Lisans Yönetimi sayfası hariç tüm menü erişimlerini kes.
+            return redirect(url_for('license_management'))
+
+        return f(*args, **kwargs)
+    return decorated
+# --- LİSANS GEREKLİ DEKORATÖRÜ SONU ---
+
 # API Endpoints
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -157,7 +312,13 @@ def get_settings_for_client():
         'primary_color_start': settings.get('primary_color_start'),
         'primary_color_end': settings.get('primary_color_end'),
         'welcome_modal_enabled': settings.get('welcome_modal_enabled'),
-        'welcome_modal_text': settings.get('welcome_modal_text')
+        'welcome_modal_text': settings.get('welcome_modal_text'),
+        # YENİ SOSYAL MEDYA AYARLARI EKLENDİ
+        'social_google': settings.get('social_google', ''),
+        'social_instagram': settings.get('social_instagram', ''),
+        'social_facebook': settings.get('social_facebook', ''),
+        'social_youtube': settings.get('social_youtube', '')
+        # YENİ SOSYAL MEDYA AYARLARI SONU
     }
     return json_response(data)
 
@@ -256,6 +417,7 @@ def download_100_save(current_user_id, game_id):
 
 # Admin Panel Routes
 @app.route('/admin')
+@license_required
 def admin_index():
     conn = get_db_connection()
     game_count = conn.execute('SELECT COUNT(*) FROM games').fetchone()[0]
@@ -272,6 +434,7 @@ def admin_index():
     return render_template('index.html', stats=stats, recent_games=recent_games_list)
 
 @app.route('/admin/sliders')
+@license_required
 def manage_sliders():
     conn = get_db_connection()
     sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id WHERE s.is_active = 1 ORDER BY s.display_order ASC').fetchall()
@@ -279,6 +442,7 @@ def manage_sliders():
     return render_template('manage_sliders.html', sliders=sliders)
 
 @app.route('/admin/slider/add', methods=['GET', 'POST'])
+@license_required
 def add_slider():
     conn = get_db_connection()
     if request.method == 'POST':
@@ -305,6 +469,7 @@ def add_slider():
     return render_template('add_slider.html', games=games)
 
 @app.route('/admin/slider/edit/<int:slider_id>', methods=['GET', 'POST'])
+@license_required
 def edit_slider(slider_id):
     conn = get_db_connection()
     if request.method == 'POST':
@@ -335,6 +500,7 @@ def edit_slider(slider_id):
     return render_template('edit_slider.html', slider=slider_data, games=games)
 
 @app.route('/admin/slider/delete/<int:slider_id>', methods=['POST'])
+@license_required
 def delete_slider(slider_id):
     conn = get_db_connection()
     slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
@@ -347,6 +513,7 @@ def delete_slider(slider_id):
     return redirect(url_for('manage_sliders'))
 
 @app.route('/admin/games')
+@license_required
 def list_games():
     search_query = request.args.get('q', '') 
     conn = get_db_connection()
@@ -360,6 +527,7 @@ def list_games():
     return render_template('manage_games.html', games=games_raw, search_query=search_query)
 
 @app.route('/admin/add', methods=['GET', 'POST'])
+@license_required
 def add_game():
     conn = get_db_connection()
     if request.method == 'POST':
@@ -388,12 +556,18 @@ def add_game():
         cursor = conn.cursor()
         cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename))
         new_game_id = cursor.lastrowid
+        
+        # YENİ GALERİ YÜKLEME LOGİĞİ
         if 'gallery_images' in request.files:
             files = request.files.getlist('gallery_images')
+            folder_name = get_gallery_folder_name(oyun_adi) # Oyun adına göre klasör adını al
             for file in files:
                 if file and file.filename != '':
-                    gallery_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'])
-                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, gallery_filename))
+                    # Alt klasör içine kaydet ve DB'ye "klasor_adi/dosya.webp" kaydet
+                    gallery_filename_with_path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
+                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, gallery_filename_with_path))
+        # YENİ GALERİ YÜKLEME LOGİĞİ SONU
+        
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
@@ -402,11 +576,16 @@ def add_game():
     return render_template('add_game.html', categories=categories)
 
 @app.route('/admin/edit/<int:game_id>', methods=['GET', 'POST'])
+@license_required
 def edit_game(game_id):
     conn = get_db_connection()
     if request.method == 'POST':
         oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None
         launch_script = request.form.get('launch_script')
+        
+        # ÖNEMLİ: Oyun adını formdan alıp güncel halini kullanıyoruz
+        # Bu yüzden veritabanına kaydetmeden önce oyun adını güncelleyelim.
+        
         cover_image_filename = request.form['current_cover_image']
         if 'cover_image' in request.files:
             file = request.files['cover_image']
@@ -418,18 +597,27 @@ def edit_game(game_id):
             if file and file.filename != '':
                 yuzde_yuz_save_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+                
+        # YENİ GALERİ SİLME VE EKLEME LOGİĞİ
+        folder_name = get_gallery_folder_name(oyun_adi) # Oyun adına göre klasör adını al
         images_to_delete = request.form.getlist('delete_gallery')
         if images_to_delete:
             for image_path_to_delete in images_to_delete:
                 conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (image_path_to_delete, game_id))
-                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], image_path_to_delete))
+                # Silinecek dosyanın tam yolunu oluştur
+                full_file_path = os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], image_path_to_delete)
+                try: os.remove(full_file_path)
                 except OSError as e: print(f"Dosya silinirken hata: {e}")
+                
         if 'gallery_images' in request.files:
             files = request.files.getlist('gallery_images')
             for file in files:
                 if file and file.filename != '':
-                    gallery_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'])
-                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, gallery_filename))
+                    # Alt klasör içine kaydet ve DB'ye "klasor_adi/dosya.webp" kaydet
+                    gallery_filename_with_path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
+                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, gallery_filename_with_path))
+        # YENİ GALERİ SİLME VE EKLEME LOGİĞİ SONU
+        
         calistirma_verisi = {}
         if calistirma_tipi == 'exe':
             calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
@@ -453,6 +641,7 @@ def edit_game(game_id):
     return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images)
 
 @app.route('/admin/delete/<int:game_id>', methods=['POST'])
+@license_required
 def delete_game(game_id):
     conn = get_db_connection()
     conn.execute('DELETE FROM gallery_images WHERE game_id = ?', (game_id,))
@@ -462,6 +651,7 @@ def delete_game(game_id):
     return redirect(url_for('list_games'))
 
 @app.route('/admin/categories', methods=['GET', 'POST'])
+@license_required
 def manage_categories():
     conn = get_db_connection()
     if request.method == 'POST':
@@ -478,6 +668,7 @@ def manage_categories():
     return render_template('manage_categories.html', categories=categories)
 
 @app.route('/admin/categories/edit/<int:category_id>', methods=['GET', 'POST'])
+@license_required
 def edit_category(category_id):
     conn = get_db_connection()
     if request.method == 'POST':
@@ -495,6 +686,7 @@ def edit_category(category_id):
     return render_template('edit_category.html', category=category)
 
 @app.route('/admin/categories/delete/<int:category_id>', methods=['POST'])
+@license_required
 def delete_category(category_id):
     conn = get_db_connection()
     conn.execute('UPDATE games SET category_id = NULL WHERE category_id = ?', (category_id,))
@@ -504,6 +696,7 @@ def delete_category(category_id):
     return redirect(url_for('manage_categories'))
 
 @app.route('/admin/users')
+@license_required
 def manage_users():
     conn = get_db_connection()
     users = conn.execute('SELECT id, username FROM users ORDER BY username ASC').fetchall()
@@ -511,6 +704,7 @@ def manage_users():
     return render_template('manage_users.html', users=users)
 
 @app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@license_required
 def edit_user(user_id):
     conn = get_db_connection()
     if request.method == 'POST':
@@ -535,6 +729,7 @@ def edit_user(user_id):
     return render_template('edit_user.html', user=user)
 
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
+@license_required
 def delete_user(user_id):
     if user_id == 1:
         return redirect(url_for('manage_users'))
@@ -548,6 +743,7 @@ def delete_user(user_id):
     return redirect(url_for('manage_users'))
 
 @app.route('/admin/ratings')
+@license_required
 def manage_ratings():
     sort_by = request.args.get('sort_by', 'oyun_adi')
     order = request.args.get('order', 'asc')
@@ -564,6 +760,7 @@ def manage_ratings():
     return render_template('manage_ratings.html', games=games, sort_by=sort_by, next_order=next_order)
 
 @app.route('/admin/statistics')
+@license_required
 def manage_statistics():
     sort_by = request.args.get('sort_by', 'click_count') 
     order = request.args.get('order', 'desc')
@@ -580,6 +777,7 @@ def manage_statistics():
     return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order=next_order)
 
 @app.route('/admin/statistics/reset_all', methods=['POST'])
+@license_required
 def reset_all_clicks():
     conn = get_db_connection()
     conn.execute('UPDATE games SET click_count = 0')
@@ -588,6 +786,7 @@ def reset_all_clicks():
     return redirect(url_for('manage_statistics'))
 
 @app.route('/admin/ratings/reset_all', methods=['POST'])
+@license_required
 def reset_all_ratings():
     conn = get_db_connection()
     conn.execute('DELETE FROM user_ratings')
@@ -597,93 +796,9 @@ def reset_all_ratings():
     return redirect(url_for('manage_ratings'))
 
 @app.route('/admin/download_games')
+@license_required
 def download_games():
     return render_template('download_games.html')
-
-# --- LİSANS YÖNETİMİ BÖLÜMÜ ---
-
-# Lisans durumunu global bir değişkende tutalım
-license_status_cache = {
-    "status": None,
-    "reason": "Henüz kontrol edilmedi",
-    "last_checked": None
-}
-
-# Donanım Kimliği (HWID) oluşturma fonksiyonu: Anakart Seri Numarası çekiliyor
-def get_hwid():
-    # Anakart seri numarasını çekmek için PowerShell komutunu kullan
-    try:
-        # PowerShell komutunu çalıştır
-        command = ['powershell', '-Command', 'Get-CimInstance -ClassName Win32_BaseBoard | Select-Object SerialNumber']
-        # CREATE_NO_WINDOW bayrağı kaldırıldı, böylece hatayı daha iyi görebiliriz
-        process = subprocess.run(command, 
-                                 capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW) 
-        
-        output = process.stdout
-        
-        # PowerShell çıktısını ayıkla (Header, -----, Serial Number)
-        lines = [line.strip() for line in output.splitlines() if line.strip()]
-        
-        # Seri numarası genellikle 2. veya 3. satırda bulunur
-        if len(lines) >= 3:
-            # SerialNumber header ve ayırıcı çizgiden sonraki satırı hedefle
-            # Genellikle 2. indexteki satır Seri numarasıdır (0=Header, 1=-----, 2=Serial)
-            serial_number = lines[2].strip()
-            
-            if serial_number and serial_number != 'To be filled by O.E.M.' and serial_number != 'None': 
-                return serial_number.replace(" ", "").strip()
-        
-    except Exception as e:
-        # Eğer PowerShell başarısız olursa, hatayı logla
-        print(f"Anakart Seri Numarası PowerShell ile çekilemedi: {e}")
-        pass
-    
-    # Başarısız olursa boş string döndür
-    return "" 
-    
-# Yeni: Flask sunucusunun harici IP adresini çeken fonksiyon
-def get_public_ip_from_server():
-    """Flask sunucusunun çalıştığı makinenin harici IP'sini bir API aracılığıyla çeker."""
-    try:
-        # Flask, harici bir IP servisini çağırır
-        response = requests.get('https://api.ipify.org?format=json', timeout=5)
-        if response.status_code == 200:
-            return response.json()['ip']
-    except requests.RequestException as e:
-        print(f"UYARI: Sunucu harici IP alımında hata: {e}")
-        pass
-    
-    # Başarısız olursa boş string döndürür.
-    return "" 
-
-# Lisans anahtarını ve istemci IP'sini kontrol eden fonksiyon güncellendi
-def check_license(license_key, hwid, client_ip):
-    """PHP API'sini çağırarak lisansı Anakart Seri No ve IP ile doğrular."""
-    global license_status_cache
-    api_url = "https://onurmedya.tr/burak/api.php"
-    payload = {
-        "license_key": license_key,
-        "hwid": hwid, 
-        "client_ip": client_ip 
-    }
-    try:
-        response = requests.post(api_url, json=payload, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            license_status_cache['status'] = data.get('status')
-            license_status_cache['reason'] = data.get('reason') or data.get('message', 'Durum bilinmiyor.')
-            license_status_cache['full_api_response'] = data # Tüm API yanıtını kaydet
-        else:
-            license_status_cache['status'] = 'invalid'
-            license_status_cache['reason'] = f'API sunucusuna ulaşılamadı (HTTP {response.status_code}).'
-            license_status_cache['full_api_response'] = {'debug': 'HTTP Status Error'}
-    except requests.RequestException as e:
-        license_status_cache['status'] = 'invalid'
-        license_status_cache['reason'] = f'API bağlantı hatası: {e}'
-        license_status_cache['full_api_response'] = {'debug': f'Request Exception: {str(e)}'}
-    
-    license_status_cache['last_checked'] = datetime.now()
-    return license_status_cache
 
 @app.route('/admin/license_management', methods=['GET', 'POST'])
 def license_management():
@@ -745,7 +860,30 @@ def license_management():
 
 # --- LİSANS YÖNETİMİ BÖLÜMÜ SONU ---
 
+@app.route('/admin/social_media', methods=['GET', 'POST'])
+@license_required
+def social_media_settings():
+    if request.method == 'POST':
+        # Sosyal medya ayarlarını al ve kaydet
+        set_setting('social_google', request.form.get('social_google', ''))
+        set_setting('social_instagram', request.form.get('social_instagram', ''))
+        set_setting('social_facebook', request.form.get('social_facebook', ''))
+        set_setting('social_youtube', request.form.get('social_youtube', ''))
+        
+        return redirect(url_for('social_media_settings'))
+
+    settings = get_all_settings()
+    # Varsayılan değerler
+    settings.setdefault('social_google', 'https://www.google.com')
+    settings.setdefault('social_instagram', 'https://www.instagram.com')
+    settings.setdefault('social_facebook', 'https://www.facebook.com')
+    settings.setdefault('social_youtube', 'https://www.youtube.com')
+    
+    return render_template('social_media_settings.html', settings=settings)
+
+
 @app.route('/admin/settings', methods=['GET', 'POST'])
+@license_required
 def general_settings():
     if request.method == 'POST':
         if 'delete_logo' in request.form:
@@ -829,6 +967,11 @@ def general_settings():
     settings.setdefault('primary_color_end', '#764ba2')
     settings.setdefault('welcome_modal_enabled', '1')
     settings.setdefault('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.')
+    # Yeni sosyal medya ayarlarını da ekle (Sadece GET için varsayılan değerleri sağlamak için)
+    settings.setdefault('social_google', 'https://www.google.com')
+    settings.setdefault('social_instagram', 'https://www.instagram.com')
+    settings.setdefault('social_facebook', 'https://www.facebook.com')
+    settings.setdefault('social_youtube', 'https://www.youtube.com')
     
     return render_template('general_settings.html', settings=settings)
 # --- YENİ EKLENEN CLIENT API BÖLÜMÜ ---
