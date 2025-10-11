@@ -18,7 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     const sectionTitle = document.getElementById('sectionTitle');
     const userActions = document.getElementById('user-actions');
-    const viewAllButton = document.querySelector('.view-all'); // NOT: Bu satır, renderGames/updateSectionTitle tarafından DOM manipülasyonu yapıldığı için güvenli değildir. Aşağıda düzeltilecek.
+    const viewAllButton = document.querySelector('.view-all'); 
     const categoryListSidebar = document.getElementById('category-list-sidebar');
     const heroSection = document.getElementById('hero-section');
 
@@ -51,6 +51,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const favoriteButton = document.getElementById('favorite-button');
     const similarGamesSection = document.querySelector('.similar-games-section');
     const similarGamesGrid = document.getElementById('similar-games-grid');
+    // YENİ EKLENEN GALERİ KONTROLLERİ
+    const mediaPrevBtn = document.getElementById('media-prev');
+    const mediaNextBtn = document.getElementById('media-next');
 
     // === Karşılama Modalı Fonksiyonları ===
     const openWelcomeModal = () => {
@@ -124,15 +127,11 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-
-        // SLIDER GÖRÜNÜRLÜĞÜNÜ AYARLA (YENİ KOD BAŞLANGICI)
-        // Sadece 'all' filtresinde ve arama yapılmadığında göster.
         if (filter === 'all' && !searchTerm) {
             heroSection.style.display = 'block';
         } else {
             heroSection.style.display = 'none';
         }
-        // SLIDER GÖRÜNÜRLÜĞÜNÜ AYARLA (YENİ KOD SONU)
 
         if (filter !== 'all' && filter !== 'favorites' && filter !== 'recent' && filter !== 'discover') {
             filtered = allGames.filter(g => g.kategori === filter);
@@ -145,12 +144,8 @@ window.addEventListener('DOMContentLoaded', () => {
             filtered = allGames.filter(g => userFavorites.has(g.id));
         }
         
-        // 2. Ana Sayfa Limitini Uygula
         if (filter === 'all' && !searchTerm) {
             filtered = filtered.slice(0, 24);
-            // viewAllButton.style.display = 'inline-flex'; // viewAllButton burada DOM'da her zaman mevcut değildir
-        } else if (filter !== 'discover') {
-            // viewAllButton.style.display = 'none'; // viewAllButton burada DOM'da her zaman mevcut değildir
         }
 
 
@@ -188,58 +183,69 @@ window.addEventListener('DOMContentLoaded', () => {
     
     const showGameDetail = (game) => {
         detailTitle.textContent = game.oyun_adi;
-        detailDescription.textContent = game.aciklama || "Açıklama bulunmuyor.";
-        
+        detailDescription.innerHTML = game.aciklama || "Açıklama bulunmuyor.";
         detailMeta.innerHTML = `
-            <div class="meta-item">
-                <span><i class="fas fa-tags"></i> Kategori:</span>
-                <span>${game.kategori||'N/A'}</span>
-            </div>
-            <div class="meta-item">
-                <span><i class="fas fa-calendar-alt"></i> Çıkış Yılı:</span>
-                <span>${game.cikis_yili||'N/A'}</span>
-            </div>
-            <div class="meta-item">
-                <span><i class="fas fa-shield-alt"></i> PEGI:</span>
-                <span>${game.pegi||'N/A'}</span>
-            </div>`;
+            <div class="meta-item"><span><i class="fas fa-tags"></i> Kategori:</span><span>${game.kategori||'N/A'}</span></div>
+            <div class="meta-item"><span><i class="fas fa-calendar-alt"></i> Çıkış Yılı:</span><span>${game.cikis_yili||'N/A'}</span></div>
+            <div class="meta-item"><span><i class="fas fa-shield-alt"></i> PEGI:</span><span>${game.pegi||'N/A'}</span></div>`;
 
         updateRatingDisplay(game);
         updateFavoriteDisplay(game.id);
-        thumbnailStrip.innerHTML = '';
-        mainMedia.innerHTML = '';
-        
+
+        let galleryItems = [];
+        let currentMediaIndex = 0;
+
         if (game.youtube_id) {
-            const videoThumb = document.createElement('div');
-            videoThumb.className = 'thumbnail-item active';
-            videoThumb.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${game.youtube_id}/mqdefault.jpg)"><i class="fas fa-play"></i></div>`;
-            mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${game.youtube_id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
-            videoThumb.addEventListener('click', () => {
-                document.querySelector('.thumbnail-item.active')?.classList.remove('active');
-                videoThumb.classList.add('active');
-                mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${game.youtube_id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
-            });
-            thumbnailStrip.appendChild(videoThumb);
+            galleryItems.push({ type: 'video', id: game.youtube_id });
+        }
+        if (game.galeri && game.galeri.length > 0) {
+            game.galeri.forEach(imgFile => galleryItems.push({ type: 'image', src: `${SERVER_URL}/static/images/gallery/${imgFile}` }));
         }
 
-        if (game.galeri && game.galeri.length > 0) {
-            game.galeri.forEach((imgFile, index) => {
-                const imgThumb = document.createElement('div');
-                imgThumb.className = 'thumbnail-item';
-                const imgSrc = `${SERVER_URL}/static/images/gallery/${imgFile}`;
-                imgThumb.innerHTML = `<img src="${imgSrc}">`;
-                imgThumb.addEventListener('click', () => {
-                    document.querySelector('.thumbnail-item.active')?.classList.remove('active');
-                    imgThumb.classList.add('active');
-                    mainMedia.innerHTML = `<img src="${imgSrc}">`;
-                });
-                thumbnailStrip.appendChild(imgThumb);
-                if (!game.youtube_id && index === 0) {
-                    imgThumb.click();
-                }
+        const updateMainMedia = (index) => {
+            const item = galleryItems[index];
+            mainMedia.innerHTML = ''; 
+
+            const prevArrow = document.createElement('div'); prevArrow.className = 'media-nav prev'; prevArrow.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            const nextArrow = document.createElement('div'); nextArrow.className = 'media-nav next'; nextArrow.innerHTML = '<i class="fas fa-chevron-right"></i>';
+
+            prevArrow.onclick = () => { currentMediaIndex = (currentMediaIndex - 1 + galleryItems.length) % galleryItems.length; updateMainMedia(currentMediaIndex); };
+            nextArrow.onclick = () => { currentMediaIndex = (currentMediaIndex + 1) % galleryItems.length; updateMainMedia(currentMediaIndex); };
+            
+            if (item.type === 'video') {
+                mainMedia.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${item.id}/mqdefault.jpg)"><i class="fas fa-play"></i></div>`;
+                mainMedia.querySelector('.video-thumb').onclick = () => {
+                    mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${item.id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
+                };
+            } else {
+                mainMedia.innerHTML = `<img src="${item.src}">`;
+                mainMedia.appendChild(prevArrow);
+                mainMedia.appendChild(nextArrow);
+            }
+
+            document.querySelectorAll('.thumbnail-item').forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
             });
+            currentMediaIndex = index;
+        };
+
+        thumbnailStrip.innerHTML = '';
+        galleryItems.forEach((item, index) => {
+            const thumb = document.createElement('div');
+            thumb.className = 'thumbnail-item';
+            if (item.type === 'video') {
+                thumb.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${item.id}/mqdefault.jpg)"><i class="fas fa-play"></i></div>`;
+            } else {
+                thumb.innerHTML = `<img src="${item.src}">`;
+            }
+            thumb.onclick = () => updateMainMedia(index);
+            thumbnailStrip.appendChild(thumb);
+        });
+
+        if (galleryItems.length > 0) {
+            updateMainMedia(0);
         }
-        
+
         playButtonArea.innerHTML = '';
         playButtonArea.style.flexDirection = 'column';
 
@@ -247,22 +253,16 @@ window.addEventListener('DOMContentLoaded', () => {
         playButton.className = 'hero-btn primary';
         playButton.innerHTML = '▶ Şimdi Oyna';
         playButton.dataset.gameId = game.id;
-        playButton.addEventListener('click', () => {
-            closeGameDetail();
-            syncAndLaunch(game);
-        });
+        playButton.onclick = () => { closeGameDetail(); syncAndLaunch(game); };
         
         if (game.kategori !== 'Online Oyunlar' && game.yuzde_yuz_save_path) {
             playButtonArea.style.flexDirection = 'row';
             const saveButton = document.createElement('button');
             saveButton.className = 'hero-btn secondary';
             saveButton.textContent = '%100 SAVE';
-            saveButton.addEventListener('click', () => {
-                handle100Save(game.id, game.save_yolu);
-            });
+            saveButton.onclick = () => handle100Save(game.id, game.save_yolu);
             playButtonArea.appendChild(saveButton);
         }
-
         playButtonArea.appendChild(playButton);
 
         if (gameDetailModal) gameDetailModal.style.display = 'flex';
@@ -270,6 +270,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const similarGames = allGames.filter(g => g.kategori === game.kategori && g.id !== game.id).slice(0, 5);
         renderSimilarGames(similarGames);
     };
+
 
     const closeGameDetail = () => {
         if (gameDetailModal) gameDetailModal.style.display = 'none';
@@ -324,16 +325,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const updateSectionTitle = (filter) => {
         const titles = {
-            'all': 'Son Eklenen Oyunlar', // BURASI GÜNCELLENDİ
+            'all': 'Son Eklenen Oyunlar', 
             'favorites': 'Favori Oyunlarım',
             'recent': 'Son Oynanan Oyunlar',
             'discover': 'Tüm Oyunları Keşfet'
         };
         
-        // Sıralama Butonlarını Ekle/Kaldır
         const sectionHeader = document.querySelector('.section-header');
         if (filter === 'discover') {
-            // viewAllButton.style.display = 'none'; // DOM'da yeniden yaratıldığı için gereksiz
             sectionHeader.classList.add('discover-header');
             sectionHeader.innerHTML = `
                 <h2 class="section-title">Tüm Oyunları Keşfet</h2>
@@ -356,20 +355,18 @@ window.addEventListener('DOMContentLoaded', () => {
             sectionHeader.classList.remove('discover-header');
             sectionHeader.innerHTML = `<h2 class="section-title" id="sectionTitle"></h2><span class="view-all">Tümünü Gör →</span>`;
             document.getElementById('sectionTitle').textContent = titles[filter] || `${filter} Oyunları`;
-            // View all listener'ı tekrar ekle (dom yenilendiği için)
             addViewAllListener();
         }
     };
 
     const fetchGameAndCategories = () => {
-        // Tüm oyunları çek
         const gamesUrl = `${SERVER_URL}/api/games`;
         
         Promise.all([
             fetch(gamesUrl).then(res => res.json()),
             fetch(`${SERVER_URL}/api/categories`).then(res => res.json())
         ]).then(([games, categories]) => {
-            allGames = games.map(g => ({ ...g, id: Number(g.id) })); // ID'yi sayıya dönüştür
+            allGames = games.map(g => ({ ...g, id: Number(g.id) })); 
             allCategories = categories;
             renderCategories();
             addViewAllListener();
@@ -503,7 +500,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.nav-item.active').forEach(i => i.classList.remove('active'));
                 this.classList.add('active');
                 currentFilter = this.dataset.category;
-                // Sıralamayı ve aramayı sıfırla/hazırla
                 if (currentFilter === 'all' || currentFilter === 'discover') {
                     currentSort = 'newest';
                     searchInput.value = '';
@@ -514,19 +510,17 @@ window.addEventListener('DOMContentLoaded', () => {
     };
     
     const addViewAllListener = () => {
-        const currentViewAllButton = document.querySelector('.view-all'); // Yeni butonu her seferinde bul
+        const currentViewAllButton = document.querySelector('.view-all'); 
         
         if (currentViewAllButton) {
             currentViewAllButton.addEventListener('click', function() {
-                // Discover sayfasına geçiş
                 currentFilter = 'discover';
-                currentSort = 'newest'; // Varsayılan sıralamayı en yeni yap
-                searchInput.value = ''; // Arama kutusunu temizle
+                currentSort = 'newest'; 
+                searchInput.value = ''; 
                 
-                // Sidebar'da 'Ana Sayfa' aktifliğini koru (veya kaldır)
                 document.querySelectorAll('.nav-item.active').forEach(i => i.classList.remove('active'));
                 const allNavItem = document.querySelector('.nav-item[data-category="all"]');
-                if(allNavItem) allNavItem.classList.add('active'); // 'all' filtresini koru ama discover içeriğini yükle
+                if(allNavItem) allNavItem.classList.add('active'); 
                 
                 renderGames(currentFilter, ''); 
             });

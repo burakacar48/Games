@@ -10,6 +10,7 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 from database import init_db
+from PIL import Image
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'bu-cok-gizli-bir-anahtar-kimse-bilmemeli'
@@ -62,6 +63,17 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
+def convert_to_webp(file, upload_folder):
+    filename = secure_filename(file.filename)
+    base, ext = os.path.splitext(filename)
+    webp_filename = f"{base}.webp"
+    file_path = os.path.join(upload_folder, webp_filename)
+    
+    image = Image.open(file.stream)
+    image.save(file_path, 'webp', quality=85)
+    
+    return webp_filename
+    
 # API Endpoints
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -276,8 +288,7 @@ def add_slider():
         if 'background_image' in request.files:
             file = request.files['background_image']
             if file and file.filename != '':
-                background_image = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
+                background_image = convert_to_webp(file, app.config['UPLOAD_FOLDER_SLIDER'])
         conn.execute('''
             INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -306,8 +317,7 @@ def edit_slider(slider_id):
                 if background_image:
                     try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
                     except OSError: pass
-                background_image = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
+                background_image = convert_to_webp(file, app.config['UPLOAD_FOLDER_SLIDER'])
         conn.execute('''
             UPDATE slider SET game_id = ?, badge_text = ?, title = ?, description = ?, background_image = ?, is_active = ?, display_order = ?
             WHERE id = ?
@@ -355,8 +365,7 @@ def add_game():
         if 'cover_image' in request.files:
             file = request.files['cover_image']
             if file and file.filename != '':
-                cover_image_filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
+                cover_image_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_COVERS'])
         yuzde_yuz_save_filename = ''
         if 'yuzde_yuz_save_file' in request.files:
             file = request.files['yuzde_yuz_save_file']
@@ -379,8 +388,7 @@ def add_game():
             files = request.files.getlist('gallery_images')
             for file in files:
                 if file and file.filename != '':
-                    gallery_filename = secure_filename(file.filename)
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], gallery_filename))
+                    gallery_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'])
                     conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, gallery_filename))
         conn.commit()
         conn.close()
@@ -399,8 +407,7 @@ def edit_game(game_id):
         if 'cover_image' in request.files:
             file = request.files['cover_image']
             if file and file.filename != '':
-                cover_image_filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER_COVERS'], cover_image_filename))
+                cover_image_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_COVERS'])
         yuzde_yuz_save_filename = request.form['current_yuzde_yuz_save_file']
         if 'yuzde_yuz_save_file' in request.files:
             file = request.files['yuzde_yuz_save_file']
@@ -417,8 +424,7 @@ def edit_game(game_id):
             files = request.files.getlist('gallery_images')
             for file in files:
                 if file and file.filename != '':
-                    gallery_filename = secure_filename(file.filename)
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], gallery_filename))
+                    gallery_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'])
                     conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, gallery_filename))
         calistirma_verisi = {}
         if calistirma_tipi == 'exe':

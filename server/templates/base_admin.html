@@ -11,7 +11,68 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/shell/shell.min.js"></script>
     
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/pell/dist/pell.min.css">
+    <script src="https://unpkg.com/pell"></script>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_styles.css', v='1.5') }}">
+
+    <style>
+        .pell {
+            background-color: rgba(30, 30, 46, 0.8);
+            border: 2px solid rgba(220, 38, 38, 0.3);
+            border-radius: 12px;
+            box-shadow: none;
+        }
+        .pell-content {
+            background-color: rgba(30, 30, 46, 0.8);
+            color: #f1f5f9;
+            padding: 10px;
+            height: 150px;
+            border-radius: 0 0 10px 10px;
+            outline: 0;
+            overflow-y: auto;
+        }
+        .pell-actionbar {
+            background-color: rgba(20, 20, 36, 0.8);
+            border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+            border-radius: 10px 10px 0 0;
+        }
+        .pell-button {
+            background-color: transparent;
+            border: none;
+            color: #cbd5e1;
+        }
+        .pell-button:hover {
+            background-color: rgba(220, 38, 38, 0.1);
+        }
+        .pell-button-selected {
+            background-color: rgba(220, 38, 38, 0.3);
+        }
+        .pell-emoji-picker {
+            position: absolute;
+            background: #1e1e2e;
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            border-radius: 5px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            width: 280px;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .pell-emoji {
+            cursor: pointer;
+            padding: 5px;
+            font-size: 1.3em;
+            transition: transform 0.2s;
+            color: #fff;
+        }
+        .pell-emoji:hover {
+            transform: scale(1.2);
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -87,5 +148,94 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var editorEl = document.getElementById('aciklama-editor');
+        if (editorEl) {
+          const emojis = [
+            '💥','🔥','⚡','🚀','✨','💫','🎯','🏆','🎮','⭐','🏁','💎','🌟','💪','🧠','💡','📈','🌍','🎉','🤣','😂','🎲','🎯','🧩','🎈','🕹️','🥳','🤩','👾','🎧','🎵','🎶','🪩','🎤','🎮','🧨','💣','💀','☠️','🪖','🛡️','⚔️','🔫','🔪','🏹','🏇','🚁','🗡️','🩸','🏴‍☠️','🚨','🧠','🗺️','🏗️','🏰','🏭','🛰️','🚜','📊','🪙','💼','⚙️','🧩','⛏️','📋','💡','🏔️','🌋','🏝️','🏞️','🌄','🌌','🛶','🦜','🐉','🪂','🗿','🌳','🗻','🔦','🎒','🕯️','📜','🌕','🌠','🎯','💨','🔥','🚦','⛽','🚗','🏎️','🏍️','🚓','🏆','🚧','🧤','🤖','🧠','🔭','🌌','🪐','👽','💫','✨','💡','⚙️','🔋','📡','🛰️','🧪','🔮','🧬','🕹️','💻','📱','🧰','🔩','⚽','🏀','🏈','⚾','🎾','🥇','🥈','🥉','🏋️‍♂️','🏃‍♂️','🚴‍♀️','🥊','🎯','💪','🏁','🏅','🧙‍♂️','‍♀️','🧛‍♂️','🐉','🦄','🗡️','🛡️','🔮','📜','🪄','⚗️','🏰','🌙','🌟','🧞‍♂️','🧜‍♀️','👑','💎','🪶','🧬','🦅','⚔️','👁️','🕷️','🕸️','🩸','🕯️','🏚️','😱','😨','🧛‍♂️','🧟‍♀️','🔦','🔮','🌑','⚰️','🪦','⛓️','📖','🪞','🫣'
+          ];
+          
+          let savedRange;
+
+          const editorInstance = pell.init({
+            element: editorEl,
+            onChange: html => {
+              document.getElementById('aciklama_textarea').value = html;
+            },
+            defaultParagraphSeparator: 'p',
+            styleWithCSS: false,
+            actions: [
+              'bold', 'italic', 'underline', 'strikethrough', 
+              { name: 'emoji', icon: '😊', title: 'Emoji Ekle' },
+              'olist', 'ulist', 'link'
+            ]
+          });
+
+          const saveSelection = () => {
+            if (window.getSelection().rangeCount > 0) {
+              savedRange = window.getSelection().getRangeAt(0);
+            }
+          };
+          editorInstance.content.addEventListener('keyup', saveSelection);
+          editorInstance.content.addEventListener('mouseup', saveSelection);
+          editorInstance.content.addEventListener('touchend', saveSelection);
+          editorInstance.content.addEventListener('blur', saveSelection);
+
+          editorInstance.content.innerHTML = document.getElementById('aciklama_textarea').value;
+          
+          const emojiButton = editorEl.querySelector('.pell-button[title="Emoji Ekle"]');
+          if (emojiButton) {
+            emojiButton.addEventListener('click', (event) => {
+              event.stopPropagation();
+              const existingPicker = document.querySelector('.pell-emoji-picker');
+              if (existingPicker) {
+                existingPicker.remove();
+                return;
+              }
+
+              const picker = document.createElement('div');
+              picker.className = 'pell-emoji-picker';
+              
+              emojis.forEach(emoji => {
+                const span = document.createElement('span');
+                span.className = 'pell-emoji';
+                span.textContent = emoji;
+                
+                span.addEventListener('mousedown', (e) => {
+                  e.preventDefault();
+                  
+                  editorInstance.content.focus();
+                  if (savedRange) {
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(savedRange);
+                  }
+                  
+                  document.execCommand('insertText', false, emoji);
+                  picker.remove();
+                });
+                picker.appendChild(span);
+              });
+
+              const rect = emojiButton.getBoundingClientRect();
+              picker.style.top = `${rect.bottom + window.scrollY + 5}px`;
+              picker.style.left = `${rect.left + window.scrollX}px`;
+              
+              document.body.appendChild(picker);
+
+              const closePicker = (e) => {
+                if (!picker.contains(e.target) && !emojiButton.contains(e.target)) {
+                  picker.remove();
+                  document.removeEventListener('click', closePicker);
+                }
+              };
+              document.addEventListener('click', closePicker);
+            });
+          }
+        }
+      });
+    </script>
 </body>
 </html>
