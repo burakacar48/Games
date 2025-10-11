@@ -53,8 +53,8 @@
                         <td>{{ game.id }}</td>
                         <td class="game-name">{{ game.oyun_adi }}</td>
                         <td>
-                            <span class="badge badge-{{ 'uncategorized' if not game.category_name else 'default' }}">
-                                {{ game.category_name or 'Kategorisiz' }}
+                            <span class="badge badge-{{ 'uncategorized' if not game.category_names else 'default' }}">
+                                {{ game.category_names or 'Kategorisiz' }}
                             </span>
                         </td>
                         <td style="text-align: center;">

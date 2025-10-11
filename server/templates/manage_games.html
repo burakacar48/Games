@@ -34,7 +34,11 @@
                 <tr>
                     <td>{{ game.id }}</td>
                     <td class="game-name">{{ game.oyun_adi }}</td>
-                    <td><span class="badge badge-{{ 'uncategorized' if not game.category_name else 'default' }}">{{ game.category_name or 'Kategorisiz' }}</span></td>
+                    <td>
+                        <span class="badge badge-{{ 'uncategorized' if not game.category_names else 'default' }}">
+                            {{ game.category_names or 'Kategorisiz' }}
+                        </span>
+                    </td>
                     <td>
                         <div class="action-buttons">
                             <a href="{{ url_for('edit_game', game_id=game.id) }}" class="btn-icon btn-edit" title="Düzenle"><i class="fas fa-edit"></i></a>

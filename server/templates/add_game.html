@@ -21,15 +21,22 @@
                     <label for="oyun_adi_input">Oyun Adı:</label>
                     <input type="text" name="oyun_adi" id="oyun_adi_input" required>
                 </div>
-                <div class="form-group">
-                    <label for="category_id_select">Kategori:</label>
-                    <select name="category_id" id="category_id_select">
-                        <option value="">Kategori Seç</option>
+                
+                <div class="form-group full-width">
+                    <label>Kategoriler:</label>
+                    <div class="category-checkbox-container">
                         {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            <label class="category-checkbox-label">
+                                <input type="checkbox" name="category_ids" value="{{ category.id }}">
+                                <span class="category-checkbox-custom">
+                                    <i class="fas fa-check"></i>
+                                    {{ category.icon }} {{ category.name }}
+                                </span>
+                            </label>
                         {% endfor %}
-                    </select>
+                    </div>
                 </div>
+                
                 <div class="form-group">
                     <label for="youtube_id_input">YouTube Fragman ID:</label>
                     <input type="text" name="youtube_id" id="youtube_id_input" placeholder="video_id">
@@ -42,6 +49,16 @@
                     <label for="pegi_input">PEGI Rating:</label>
                     <input type="text" name="pegi" id="pegi_input" placeholder="PEGI 18">
                 </div>
+                
+                <div class="form-group">
+                    <label for="oyun_dili_select">Oyun Dili:</label>
+                    <select name="oyun_dili" id="oyun_dili_select">
+                        <option value="Türkçe Dublaj">Türkçe Dublaj</option>
+                        <option value="Türkçe Altyazı">Türkçe Altyazı</option>
+                        <option value="İngilizce" selected>İngilizce</option>
+                    </select>
+                </div>
+                
                 <div class="form-group full-width">
                     <label for="aciklama_textarea">Açıklama:</label>
                     <textarea name="aciklama" id="aciklama_textarea" rows="4" style="display:none;"></textarea>
@@ -76,7 +93,7 @@
             </div>
 
             <div class="section-title" style="margin-top: 20px;">Teknik Bilgiler</div>
-            <div class="form-grid">
+            <div class="form-row">
                 <div class="form-group">
                     <label for="save_yolu_input">Save Dosyası Yolu:</label>
                     <input type="text" name="save_yolu" id="save_yolu_input" placeholder="%USERPROFILE%\Documents\My Games\...">
@@ -89,7 +106,8 @@
                         <span class="file-name" id="yuzde_yuz_save_file_name">Dosya seçilmedi</span>
                     </div>
                 </div>
-
+            </div>
+            <div class="form-row">
                 <div class="form-group">
                     <label for="calistirma_tipi">Çalıştırma Tipi:</label>
                     <select name="calistirma_tipi" id="calistirma_tipi" onchange="updateCalistirmaInputs()">
@@ -97,32 +115,34 @@
                         <option value="steam">Steam</option>
                     </select>
                 </div>
-                <div class="form-group calistirma-fields">
-                    <div id="exe_fields">
-                        <div class="calistirma-field-group">
-                            <label for="exe_yol_input_file">EXE Yolu:</label>
-                            <input type="hidden" name="exe_yol" id="exe_yol_input" value="">
-                            <div class="custom-file-path-wrapper">
-                                <input type="file" name="exe_yol_file" id="exe_yol_input_file" class="file-input" accept=".exe">
-                                <label for="exe_yol_input_file" class="btn btn-primary" style="padding: 10px 15px; font-size: 14px; font-weight: bold;">Dosya Seç</label>
-                                <div class="file-path-display" id="exe_yol_display"><span class="file-path-placeholder">Dosya seçilmedi</span></div>
-                            </div>
-                        </div>
-                        <div class="calistirma-field-group">
-                            <label for="exe_argumanlar_input">Argümanlar (isteğe bağlı):</label>
-                            <input type="text" name="exe_argumanlar" id="exe_argumanlar_input" placeholder="-fullscreen -novid">
-                        </div>
-                        <div class="calistirma-field-group" style="margin-top: 15px;">
-                            <label>İsteğe Bağlı Başlatma Scripti (.bat)</label>
-                            <button type="button" id="open-script-editor" class="btn btn-secondary">
-                                <i class="fas fa-code"></i> Script Editörünü Aç
-                            </button>
-                             <p class="file-prompt" style="font-size: 12px; margin-top: 5px;">Değişkenler: <strong>%EXE_YOLU%</strong>, <strong>%EXE_ARGS%</strong></p>
+                <div class="form-group" style="flex-grow: 1.5;"> <div id="exe_fields" class="calistirma-field-group">
+                        <label for="exe_yol_input_file">EXE Yolu:</label>
+                        <input type="hidden" name="exe_yol" id="exe_yol_input" value="">
+                        <div class="custom-file-path-wrapper">
+                            <input type="file" name="exe_yol_file" id="exe_yol_input_file" class="file-input" accept=".exe">
+                            <label for="exe_yol_input_file" class="file-path-display" id="exe_yol_display">
+                                <span class="file-path-placeholder">Dosya seçmek için tıklayın...</span>
+                            </label>
                         </div>
                     </div>
                     <div id="steam_fields" class="hidden calistirma-field-group">
                         <label for="steam_app_id_input">Steam App ID:</label>
                         <input type="text" name="steam_app_id" id="steam_app_id_input" placeholder="Örn: 730">
+                    </div>
+                </div>
+            </div>
+            <div id="exe_extra_fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="exe_argumanlar_input">Argümanlar (isteğe bağlı):</label>
+                        <input type="text" name="exe_argumanlar" id="exe_argumanlar_input" placeholder="-fullscreen -novid">
+                    </div>
+                    <div class="form-group">
+                        <label>İsteğe Bağlı Başlatma Scripti (.bat)</label>
+                        <button type="button" id="open-script-editor" class="btn btn-secondary">
+                            <i class="fas fa-code"></i> Script Editörünü Aç
+                        </button>
+                        <p class="file-prompt" style="font-size: 12px; margin-top: 5px;">Değişkenler: <strong>%EXE_YOLU%</strong>, <strong>%EXE_ARGS%</strong></p>
                     </div>
                 </div>
             </div>
@@ -136,12 +156,8 @@
 
     <div id="script-editor-modal" class="modal-overlay">
         <div class="modal-content-editor">
-            <div class="modal-header">
-                <h2>Başlatma Scripti Editörü</h2>
-            </div>
-            <div class="modal-body">
-                <textarea id="code-editor"></textarea>
-            </div>
+            <div class="modal-header"><h2>Başlatma Scripti Editörü</h2></div>
+            <div class="modal-body"><textarea id="code-editor"></textarea></div>
             <div class="modal-footer">
                 <button type="button" id="close-script-editor" class="btn btn-secondary">İptal</button>
                 <button type="button" id="save-script-editor" class="btn btn-primary">Kaydet ve Kapat</button>
@@ -154,22 +170,12 @@
             const tip = document.getElementById('calistirma_tipi').value;
             document.getElementById('exe_fields').style.display = 'none';
             document.getElementById('steam_fields').style.display = 'none';
-            
+            document.getElementById('exe_extra_fields').style.display = 'none';
             if (tip === 'exe') {
-                document.getElementById('exe_fields').style.display = 'flex';
-                document.getElementById('exe_fields').classList.add('calistirma-field-group');
-            } else {
-                 document.getElementById('exe_fields').classList.remove('calistirma-field-group');
-            }
-            if (tip === 'steam') {
-                document.getElementById('steam_fields').style.display = 'flex';
-            }
-            
-            const calistirmaFieldsGroup = document.querySelector('.form-group.calistirma-fields');
-            if (tip === 'exe' || tip === 'steam') {
-                calistirmaFieldsGroup.classList.add('full-width');
-            } else {
-                calistirmaFieldsGroup.classList.remove('full-width');
+                document.getElementById('exe_fields').style.display = 'block';
+                document.getElementById('exe_extra_fields').style.display = 'block';
+            } else if (tip === 'steam') {
+                document.getElementById('steam_fields').style.display = 'block';
             }
         }
         
@@ -178,22 +184,16 @@
                 const display = document.getElementById(nameId);
                 if (event.target.files && event.target.files.length > 0) {
                     if (isExePath) {
-                        display.textContent = event.target.files[0].name;
+                        display.innerHTML = event.target.files[0].name;
                         display.classList.remove('file-path-placeholder');
                         document.getElementById('exe_yol_input').value = event.target.files[0].name;
                     } else {
-                         display.textContent = event.target.files[0].name;
+                         display.textContent = event.target.files.length > 1 ? `${event.target.files.length} dosya seçildi` : event.target.files[0].name;
                     }
                 } else {
-                    if (isExePath) {
-                        const currentExePath = document.getElementById('exe_yol_input')?.value || '';
-                        if (currentExePath) {
-                            display.textContent = currentExePath.split('\\').pop().split('/').pop();
-                            display.classList.remove('file-path-placeholder');
-                        } else {
-                            display.innerHTML = `<span class="file-path-placeholder">Dosya seçilmedi</span>`;
-                            document.getElementById('exe_yol_input').value = '';
-                        }
+                     if (isExePath) {
+                        display.innerHTML = `<span class="file-path-placeholder">Dosya seçmek için tıklayın...</span>`;
+                        document.getElementById('exe_yol_input').value = '';
                     } else {
                         display.textContent = 'Dosya seçilmedi';
                     }
@@ -207,31 +207,12 @@
             handleFileLabelUpdate('gallery_images_input_custom', 'gallery_images_name');
             handleFileLabelUpdate('exe_yol_input_file', 'exe_yol_display', true); 
             handleFileLabelUpdate('yuzde_yuz_save_file_input', 'yuzde_yuz_save_file_name');
-
             const modal = document.getElementById('script-editor-modal');
             const hiddenTextarea = document.getElementById('launch_script_textarea');
-            
-            const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
-                lineNumbers: true,
-                mode: 'shell',
-                theme: 'darcula',
-                lineWrapping: true
-            });
-
-            document.getElementById('open-script-editor').addEventListener('click', () => {
-                editor.setValue(hiddenTextarea.value);
-                modal.style.display = 'flex';
-                editor.refresh();
-            });
-
-            document.getElementById('close-script-editor').addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-
-            document.getElementById('save-script-editor').addEventListener('click', () => {
-                hiddenTextarea.value = editor.getValue();
-                modal.style.display = 'none';
-            });
+            const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), { lineNumbers: true, mode: 'shell', theme: 'darcula', lineWrapping: true });
+            document.getElementById('open-script-editor').addEventListener('click', () => { editor.setValue(hiddenTextarea.value); modal.style.display = 'flex'; editor.refresh(); });
+            document.getElementById('close-script-editor').addEventListener('click', () => { modal.style.display = 'none'; });
+            document.getElementById('save-script-editor').addEventListener('click', () => { hiddenTextarea.value = editor.getValue(); modal.style.display = 'none'; });
         });
     </script>
 {% endblock %}

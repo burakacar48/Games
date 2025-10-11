@@ -13,7 +13,6 @@ from database import init_db
 from PIL import Image
 import requests
 import uuid
-# subprocess kütüphanesi eklendi
 import subprocess
 
 app = Flask(__name__)
@@ -29,7 +28,6 @@ app.config['UPLOAD_FOLDER_LOGOS'] = os.path.join(BASE_DIR, 'static/images/logos'
 
 DATABASE = 'kafe.db'
 
-# KÖK ÇÖZÜM: JSON yanıtlarını UTF-8 olarak göndermek için yardımcı fonksiyon
 def json_response(data, status_code=200):
     response_data = json.dumps(data, ensure_ascii=False)
     return Response(response_data, status=status_code, content_type='application/json; charset=utf-8')
@@ -73,12 +71,10 @@ def convert_to_webp(file, upload_folder, sub_folder=None):
     webp_filename = f"{base}.webp"
     
     if sub_folder and upload_folder == app.config['UPLOAD_FOLDER_GALLERY']:
-        # Alt klasör yolunu oluştur ve yoksa dizini oluştur
         final_dir = os.path.join(upload_folder, sub_folder)
         if not os.path.exists(final_dir):
             os.makedirs(final_dir)
         file_path = os.path.join(final_dir, webp_filename)
-        # DB'de saklanacak yol: klasör_adı/dosya_adı.webp (URL uyumluluğu için / kullan)
         stored_path = os.path.join(sub_folder, webp_filename).replace('\\', '/')
     else:
         file_path = os.path.join(upload_folder, webp_filename)
@@ -89,164 +85,103 @@ def convert_to_webp(file, upload_folder, sub_folder=None):
     
     return stored_path
 
-# GÜNCELLENDİ: Türkçe karakterleri ve yasadışı Windows karakterlerini temizler.
 def get_gallery_folder_name(game_name):
-    # 1. Türkçe karakterleri çevir
     char_map = {
         'ğ': 'g', 'ı': 'i', 'ş': 's', 'ç': 'c', 'ö': 'o', 'ü': 'u',
         'Ğ': 'G', 'İ': 'I', 'Ş': 'S', 'Ç': 'C', 'Ö': 'O', 'Ü': 'U',
     }
-    cleaned_name = ""
-    for char in game_name:
-        cleaned_name += char_map.get(char, char)
-        
-    # 2. Windows'ta yasadışı karakterleri ve boşlukları kaldır (önceki isteğe uyum için)
-    # Yasadışı karakterler: < > : " / \ | ? * ve boşluk
-    illegal_chars = ' <>:"/\\|?*' # Boşluk karakteri de burada kaldırılır.
-    
+    cleaned_name = "".join(char_map.get(char, char) for char in game_name)
+    illegal_chars = ' <>:"/\\|?*'
     final_name = "".join(c for c in cleaned_name if c not in illegal_chars)
-    
-    # Temizlenmiş ismi döndür (örnek: "God of War: Ragnarök" -> "GodofWarRagnarok")
     return final_name.strip()
-    
+
 # --- LİSANS YÖNETİMİ BÖLÜMÜ ---
+license_status_cache = {"status": None, "reason": "Henüz kontrol edilmedi", "last_checked": None}
 
-# Lisans durumunu global bir değişkende tutalım
-license_status_cache = {
-    "status": None,
-    "reason": "Henüz kontrol edilmedi",
-    "last_checked": None
-}
-
-# Donanım Kimliği (HWID) oluşturma fonksiyonu: Anakart Seri Numarası çekiliyor
 def get_hwid():
-    # Anakart seri numarasını çekmek için PowerShell komutunu kullan
     try:
-        # PowerShell komutunu çalıştır
         command = ['powershell', '-Command', 'Get-CimInstance -ClassName Win32_BaseBoard | Select-Object SerialNumber']
-        # CREATE_NO_WINDOW bayrağı kaldırıldı, böylece hatayı daha iyi görebiliriz
-        process = subprocess.run(command, 
-                                 capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW) 
-        
-        output = process.stdout
-        
-        # PowerShell çıktısını ayıkla (Header, -----, Serial Number)
-        lines = [line.strip() for line in output.splitlines() if line.strip()]
-        
-        # Seri numarası genellikle 2. veya 3. satırda bulunur
-        if len(lines) >= 3:
-            # SerialNumber header ve ayırıcı çizgiden sonraki satırı hedefle
-            # Genellikle 2. indexteki satır Seri numarasıdır (0=Header, 1=-----, 2=Serial)
-            serial_number = lines[2].strip()
-            
-            if serial_number and serial_number != 'To be filled by O.E.M.' and serial_number != 'None': 
-                return serial_number.replace(" ", "").strip()
-        
+        process = subprocess.run(command, capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        lines = [line.strip() for line in process.stdout.splitlines() if line.strip()]
+        if len(lines) >= 3 and lines[2] and lines[2] not in ['To be filled by O.E.M.', 'None']:
+            return lines[2].replace(" ", "").strip()
     except Exception as e:
-        # Eğer PowerShell başarısız olursa, hatayı logla
-        print(f"Anakart Seri Numarası PowerShell ile çekilemedi: {e}")
-        pass
-    
-    # Başarısız olursa boş string döndür
-    return "" 
-    
-# Yeni: Flask sunucusunun harici IP adresini çeken fonksiyon
-def get_public_ip_from_server():
-    """Flask sunucusunun çalıştığı makinenin harici IP'sini bir API aracılığıyla çeker."""
-    try:
-        # Flask, harici bir IP servisini çağırır
-        response = requests.get('https://api.ipify.org?format=json', timeout=5)
-        if response.status_code == 200:
-            return response.json()['ip']
-    except requests.RequestException as e:
-        print(f"UYARI: Sunucu harici IP alımında hata: {e}")
-        pass
-    
-    # Başarısız olursa boş string döndürür.
-    return "" 
+        print(f"Anakart Seri Numarası alınamadı: {e}")
+    return ""
 
-# Lisans anahtarını ve istemci IP'sini kontrol eden fonksiyon güncellendi
+def get_public_ip_from_server():
+    try:
+        response = requests.get('https://api.ipify.org?format=json', timeout=5)
+        if response.status_code == 200: return response.json()['ip']
+    except requests.RequestException as e:
+        print(f"Sunucu harici IP alınamadı: {e}")
+    return ""
+
 def check_license(license_key, hwid, client_ip):
-    """PHP API'sini çağırarak lisansı Anakart Seri No ve IP ile doğrular."""
     global license_status_cache
     api_url = "https://onurmedya.tr/burak/api.php"
-    payload = {
-        "license_key": license_key,
-        "hwid": hwid, 
-        "client_ip": client_ip 
-    }
+    payload = {"license_key": license_key, "hwid": hwid, "client_ip": client_ip}
     try:
         response = requests.post(api_url, json=payload, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            license_status_cache['status'] = data.get('status')
-            license_status_cache['reason'] = data.get('reason') or data.get('message', 'Durum bilinmiyor.')
-            license_status_cache['full_api_response'] = data # Tüm API yanıtını kaydet
+            license_status_cache.update({
+                'status': data.get('status'), 
+                'reason': data.get('reason') or data.get('message', 'Durum bilinmiyor.'), 
+                'full_api_response': data
+            })
         else:
-            license_status_cache['status'] = 'invalid'
-            license_status_cache['reason'] = f'API sunucusuna ulaşılamadı (HTTP {response.status_code}).'
-            license_status_cache['full_api_response'] = {'debug': 'HTTP Status Error'}
+            license_status_cache.update({
+                'status': 'invalid', 
+                'reason': f'API sunucusuna ulaşılamadı (HTTP {response.status_code}).', 
+                'full_api_response': {'debug': 'HTTP Status Error'}
+            })
     except requests.RequestException as e:
-        license_status_cache['status'] = 'invalid'
-        license_status_cache['reason'] = f'API bağlantı hatası: {e}'
-        license_status_cache['full_api_response'] = {'debug': f'Request Exception: {str(e)}'}
-    
+        license_status_cache.update({
+            'status': 'invalid', 
+            'reason': f'API bağlantı hatası: {e}', 
+            'full_api_response': {'debug': f'Request Exception: {str(e)}'}
+        })
     license_status_cache['last_checked'] = datetime.now()
     return license_status_cache
 
-# --- YENİ EKLENEN LİSANS GEREKLİ DEKORATÖRÜ ---
 def license_required(f):
-    """Lisans geçerli değilse, kullanıcıyı Lisans Yönetimi sayfasına yönlendirir."""
     @wraps(f)
     def decorated(*args, **kwargs):
         global license_status_cache
-        
-        current_status = license_status_cache.get('status')
-        last_checked = license_status_cache.get('last_checked')
-        
-        # 1. Lisans anahtarını al (her durumda gerekli)
         settings = get_all_settings()
         license_key = settings.get('license_key', '')
-
-        # 2. Eğer durum geçerli değilse, anahtar yoksa veya son kontrol üzerinden süre geçtiyse yeniden kontrol et
+        last_checked = license_status_cache.get('last_checked')
         time_to_recheck = not last_checked or (datetime.now() - last_checked) > timedelta(hours=1)
         
-        if current_status != 'valid' or not license_key or time_to_recheck:
-            
+        if license_status_cache.get('status') != 'valid' or not license_key or time_to_recheck:
             if license_key:
-                server_hwid = get_hwid()
-                server_public_ip = get_public_ip_from_server() 
-                check_license(license_key, server_hwid, server_public_ip)
-                current_status = license_status_cache.get('status')
+                check_license(license_key, get_hwid(), get_public_ip_from_server())
             else:
-                # Anahtar yoksa geçersiz say
-                license_status_cache['status'] = 'invalid' 
-                license_status_cache['reason'] = 'Lisans Anahtarı Ayarlanmamış'
-                current_status = 'invalid'
+                license_status_cache.update({'status': 'invalid', 'reason': 'Lisans Anahtarı Ayarlanmamış'})
                 
-        # 3. Eğer lisans hala geçerli değilse yönlendir
-        if current_status != 'valid':
-            # Lisans Yönetimi sayfası hariç tüm menü erişimlerini kes.
+        if license_status_cache.get('status') != 'valid':
             return redirect(url_for('license_management'))
-
         return f(*args, **kwargs)
     return decorated
-# --- LİSANS GEREKLİ DEKORATÖRÜ SONU ---
 
 # API Endpoints
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
-    if not data or not data.get('username') or not data.get('password'): return jsonify({"mesaj": "Kullanıcı adı veya şifre eksik"}), 400
-    if len(data['username']) < 3: return jsonify({"mesaj": "Kullanıcı adı en az 3 karakter olmalıdır."}), 400
-    if len(data['password']) < 5: return jsonify({"mesaj": "Şifre en az 5 karakter olmalıdır."}), 400
+    if not data or not data.get('username') or not data.get('password'): 
+        return jsonify({"mesaj": "Kullanıcı adı veya şifre eksik"}), 400
+    if len(data['username']) < 3: 
+        return jsonify({"mesaj": "Kullanıcı adı en az 3 karakter olmalıdır."}), 400
+    if len(data['password']) < 5: 
+        return jsonify({"mesaj": "Şifre en az 5 karakter olmalıdır."}), 400
+    
     conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE username = ?', (data['username'],)).fetchone()
-    if user:
+    if conn.execute('SELECT * FROM users WHERE username = ?', (data['username'],)).fetchone():
         conn.close()
         return jsonify({"mesaj": "Bu kullanıcı adı zaten alınmış."}), 409
-    password_hash = generate_password_hash(data['password'])
-    conn.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (data['username'], password_hash))
+    
+    conn.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (data['username'], generate_password_hash(data['password'])))
     conn.commit()
     conn.close()
     return jsonify({"mesaj": "Kullanıcı başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz."}), 201
@@ -257,7 +192,9 @@ def login():
     conn = get_db_connection()
     user = conn.execute('SELECT * FROM users WHERE username = ?', (auth_data['username'],)).fetchone()
     conn.close()
-    if not user or not check_password_hash(user['password_hash'], auth_data['password']): return jsonify({"mesaj": "Hatalı kullanıcı adı veya şifre"}), 401
+    if not user or not check_password_hash(user['password_hash'], auth_data['password']): 
+        return jsonify({"mesaj": "Hatalı kullanıcı adı veya şifre"}), 401
+    
     token = jwt.encode({'user_id': user['id'], 'exp': datetime.utcnow() + timedelta(hours=8)}, app.config['SECRET_KEY'], algorithm="HS256")
     return jsonify({'token': token})
     
@@ -266,93 +203,112 @@ def get_games():
     conn = get_db_connection()
     limit = request.args.get('limit', type=int)
     
-    query = 'SELECT g.*, c.name as kategori FROM games g LEFT JOIN categories c ON g.category_id = c.id '
+    query = """
+        SELECT g.*, GROUP_CONCAT(c.name) as kategoriler
+        FROM games g
+        LEFT JOIN game_categories gc ON g.id = gc.game_id
+        LEFT JOIN categories c ON gc.category_id = c.id
+    """
+    
     if limit:
-        query += ' ORDER BY g.id DESC LIMIT ?'
+        query += ' GROUP BY g.id ORDER BY g.id DESC LIMIT ?'
         games_cursor = conn.execute(query, (limit,)).fetchall()
     else:
-        query += ' ORDER BY g.oyun_adi ASC'
+        query += ' GROUP BY g.id ORDER BY g.oyun_adi ASC'
         games_cursor = conn.execute(query).fetchall()
         
     games_list = []
     for game in games_cursor:
         game_dict = dict(game)
+        
+        # DÜZELTİLMİŞ MANTIK
+        kategoriler_str = game_dict.get('kategoriler')
+        if kategoriler_str:
+            game_dict['kategoriler'] = kategoriler_str.split(',')
+        else:
+            game_dict['kategoriler'] = []
+            
         gallery_cursor = conn.execute('SELECT image_path FROM gallery_images WHERE game_id = ?', (game['id'],))
-        gallery_images = [row['image_path'] for row in gallery_cursor.fetchall()]
-        game_dict['galeri'] = gallery_images
+        game_dict['galeri'] = [row['image_path'] for row in gallery_cursor.fetchall()]
         games_list.append(game_dict)
+        
     conn.close()
     return json_response(games_list)
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
     conn = get_db_connection()
-    categories_cursor = conn.execute('SELECT name, icon FROM categories ORDER BY name ASC').fetchall()
+    categories_list = [dict(row) for row in conn.execute('SELECT id, name, icon FROM categories ORDER BY name ASC').fetchall()]
     conn.close()
-    categories_list = [{'name': row['name'], 'icon': row['icon']} for row in categories_cursor]
     return json_response(categories_list)
 
 @app.route('/api/slider', methods=['GET'])
 def get_slider_data():
     conn = get_db_connection()
-    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id WHERE s.is_active = 1 ORDER BY s.display_order ASC').fetchall()
+    sliders = [dict(row) for row in conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id WHERE s.is_active = 1 ORDER BY s.display_order ASC').fetchall()]
     conn.close()
-    return json_response([dict(row) for row in sliders])
+    return json_response(sliders)
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings_for_client():
     settings = get_all_settings()
-    data = {
-        'cafe_name': settings.get('cafe_name'),
-        'slogan': settings.get('slogan'),
-        'logo_file': settings.get('logo_file'),
-        'background_type': settings.get('background_type'),
-        'background_file': settings.get('background_file'),
-        'background_opacity_factor': settings.get('background_opacity_factor'),
-        'primary_color_start': settings.get('primary_color_start'),
-        'primary_color_end': settings.get('primary_color_end'),
-        'welcome_modal_enabled': settings.get('welcome_modal_enabled'),
-        'welcome_modal_text': settings.get('welcome_modal_text'),
-        # YENİ SOSYAL MEDYA AYARLARI EKLENDİ
-        'social_google': settings.get('social_google', ''),
-        'social_instagram': settings.get('social_instagram', ''),
-        'social_facebook': settings.get('social_facebook', ''),
-        'social_youtube': settings.get('social_youtube', '')
-        # YENİ SOSYAL MEDYA AYARLARI SONU
+    client_settings = {
+        key: settings.get(key, '') for key in 
+        ['cafe_name', 'slogan', 'logo_file', 'background_type', 'background_file', 'background_opacity_factor', 
+         'primary_color_start', 'primary_color_end', 'welcome_modal_enabled', 'welcome_modal_text', 
+         'social_google', 'social_instagram', 'social_facebook', 'social_youtube']
     }
-    return json_response(data)
+    return json_response(client_settings)
 
 @app.route('/api/user/ratings', methods=['GET'])
 @token_required
 def get_user_ratings(current_user_id):
     conn = get_db_connection()
-    ratings_cursor = conn.execute('SELECT game_id, rating FROM user_ratings WHERE user_id = ?', (current_user_id,)).fetchall()
+    user_ratings = {str(row['game_id']): row['rating'] for row in conn.execute('SELECT game_id, rating FROM user_ratings WHERE user_id = ?', (current_user_id,)).fetchall()}
     conn.close()
-    user_ratings = {str(row['game_id']): row['rating'] for row in ratings_cursor}
     return json_response(user_ratings)
 
 @app.route('/api/user/favorites', methods=['GET'])
 @token_required
 def get_user_favorites(current_user_id):
     conn = get_db_connection()
-    favorites_cursor = conn.execute('SELECT game_id FROM user_favorites WHERE user_id = ?', (current_user_id,)).fetchall()
+    user_favorites = [row['game_id'] for row in conn.execute('SELECT game_id FROM user_favorites WHERE user_id = ?', (current_user_id,)).fetchall()]
     conn.close()
-    user_favorites = [row['game_id'] for row in favorites_cursor]
     return json_response(user_favorites)
+
+@app.route('/api/user/recently_played', methods=['GET'])
+@token_required
+def get_recently_played(current_user_id):
+    conn = get_db_connection()
+    query = """
+        SELECT g.*, GROUP_CONCAT(c.name) as kategoriler
+        FROM user_played_games upg
+        JOIN games g ON upg.game_id = g.id
+        LEFT JOIN game_categories gc ON g.id = gc.game_id
+        LEFT JOIN categories c ON gc.category_id = c.id
+        WHERE upg.user_id = ?
+        GROUP BY g.id
+        ORDER BY upg.played_at DESC
+        LIMIT 24
+    """
+    games_cursor = conn.execute(query, (current_user_id,)).fetchall()
+    games_list = []
+    for game in games_cursor:
+        game_dict = dict(game)
+        kategoriler_str = game_dict.get('kategoriler')
+        game_dict['kategoriler'] = kategoriler_str.split(',') if kategoriler_str else []
+        games_list.append(game_dict)
+    conn.close()
+    return json_response(games_list)
 
 @app.route('/api/user/saves', methods=['GET'])
 @token_required
 def get_user_saves(current_user_id):
     user_save_dir = os.path.join(app.config['SAVE_FOLDER'], str(current_user_id))
-    if not os.path.exists(user_save_dir):
+    if not os.path.exists(user_save_dir): 
         return jsonify([])
     try:
-        saved_games = []
-        for filename in os.listdir(user_save_dir):
-            if filename.endswith('.zip'):
-                game_id = os.path.splitext(filename)[0]
-                if game_id.isdigit():
-                    saved_games.append(int(game_id))
+        saved_games = [int(f.split('.')[0]) for f in os.listdir(user_save_dir) if f.endswith('.zip') and f.split('.')[0].isdigit()]
         return json_response(saved_games)
     except Exception as e:
         return jsonify({'mesaj': f'Kayıtlar okunurken bir hata oluştu: {e}'}), 500
@@ -365,35 +321,44 @@ def increment_click_count(game_id):
     conn.close()
     return jsonify({'mesaj': 'Tıklama sayısı artırıldı.'}), 200
 
+@app.route('/api/games/<int:game_id>/played', methods=['POST'])
+@token_required
+def record_played_game(current_user_id, game_id):
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT OR REPLACE INTO user_played_games (user_id, game_id, played_at)
+        VALUES (?, ?, ?)
+    ''', (current_user_id, game_id, datetime.utcnow()))
+    conn.commit()
+    conn.close()
+    return jsonify({'mesaj': 'Oynanma zamanı kaydedildi.'}), 200
+
 @app.route('/api/games/<int:game_id>/rate', methods=['POST'])
 @token_required
 def rate_game(current_user_id, game_id):
-    data = request.get_json()
-    rating = data.get('rating')
-    if rating is None or not (0.5 <= rating <= 5): return jsonify({'mesaj': 'Geçersiz puan değeri.'}), 400
+    rating = request.get_json().get('rating')
+    if rating is None or not (0.5 <= rating <= 5): 
+        return jsonify({'mesaj': 'Geçersiz puan değeri.'}), 400
+    
     conn = get_db_connection()
     conn.execute('INSERT OR REPLACE INTO user_ratings (user_id, game_id, rating) VALUES (?, ?, ?)', (current_user_id, game_id, rating))
-    stats_cursor = conn.execute('SELECT AVG(rating), COUNT(rating) FROM user_ratings WHERE game_id = ?', (game_id,)).fetchone()
-    new_avg_rating = stats_cursor[0] if stats_cursor[0] is not None else 0
-    new_rating_count = stats_cursor[1]
-    conn.execute('UPDATE games SET average_rating = ?, rating_count = ? WHERE id = ?', (new_avg_rating, new_rating_count, game_id))
+    stats = conn.execute('SELECT AVG(rating), COUNT(rating) FROM user_ratings WHERE game_id = ?', (game_id,)).fetchone()
+    new_avg, new_count = (stats[0] or 0, stats[1])
+    conn.execute('UPDATE games SET average_rating = ?, rating_count = ? WHERE id = ?', (new_avg, new_count, game_id))
     conn.commit()
     conn.close()
-    return jsonify({'mesaj': 'Puan başarıyla kaydedildi.', 'average_rating': round(new_avg_rating, 1), 'rating_count': new_rating_count})
+    return jsonify({'mesaj': 'Puan kaydedildi.', 'average_rating': round(new_avg, 1), 'rating_count': new_count})
 
 @app.route('/api/games/<int:game_id>/favorite', methods=['POST'])
 @token_required
 def toggle_favorite(current_user_id, game_id):
     conn = get_db_connection()
-    is_favorite = conn.execute('SELECT * FROM user_favorites WHERE user_id = ? AND game_id = ?', (current_user_id, game_id)).fetchone()
-    if is_favorite:
+    if conn.execute('SELECT * FROM user_favorites WHERE user_id = ? AND game_id = ?', (current_user_id, game_id)).fetchone():
         conn.execute('DELETE FROM user_favorites WHERE user_id = ? AND game_id = ?', (current_user_id, game_id))
-        new_status = False
-        message = "Oyun favorilerden kaldırıldı."
+        new_status, message = False, "Oyun favorilerden kaldırıldı."
     else:
         conn.execute('INSERT INTO user_favorites (user_id, game_id) VALUES (?, ?)', (current_user_id, game_id))
-        new_status = True
-        message = "Oyun favorilere eklendi."
+        new_status, message = True, "Oyun favorilere eklendi."
     conn.commit()
     conn.close()
     return jsonify({'mesaj': message, 'is_favorite': new_status})
@@ -404,14 +369,10 @@ def download_100_save(current_user_id, game_id):
     conn = get_db_connection()
     game = conn.execute('SELECT yuzde_yuz_save_path FROM games WHERE id = ?', (game_id,)).fetchone()
     conn.close()
-    if not game or not game['yuzde_yuz_save_path']:
-        return jsonify({'mesaj': 'Bu oyun için %100 save dosyası bulunamadı.'}), 404
+    if not game or not game['yuzde_yuz_save_path']: 
+        return jsonify({'mesaj': '%100 save dosyası bulunamadı.'}), 404
     try:
-        return send_from_directory(
-            app.config['UPLOAD_FOLDER_100_SAVES'],
-            game['yuzde_yuz_save_path'],
-            as_attachment=True
-        )
+        return send_from_directory(app.config['UPLOAD_FOLDER_100_SAVES'], game['yuzde_yuz_save_path'], as_attachment=True)
     except FileNotFoundError:
         return jsonify({'mesaj': 'Save dosyası sunucuda bulunamadı.'}), 404
 
@@ -420,109 +381,29 @@ def download_100_save(current_user_id, game_id):
 @license_required
 def admin_index():
     conn = get_db_connection()
-    game_count = conn.execute('SELECT COUNT(*) FROM games').fetchone()[0]
-    category_count = conn.execute('SELECT COUNT(*) FROM categories').fetchone()[0]
-    user_count = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-    stats = {'game_count': game_count, 'category_count': category_count, 'user_count': user_count}
-    query = """
-    SELECT g.id, g.oyun_adi, c.name as category_name FROM games g
-    LEFT JOIN categories c ON g.category_id = c.id ORDER BY g.id DESC LIMIT 5
-    """
-    recent_games = conn.execute(query).fetchall()
+    stats = {
+        'game_count': conn.execute('SELECT COUNT(*) FROM games').fetchone()[0],
+        'category_count': conn.execute('SELECT COUNT(*) FROM categories').fetchone()[0],
+        'user_count': conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    }
+    query = "SELECT g.id, g.oyun_adi, GROUP_CONCAT(c.name) as category_names FROM games g LEFT JOIN game_categories gc ON g.id = gc.game_id LEFT JOIN categories c ON gc.category_id = c.id GROUP BY g.id ORDER BY g.id DESC LIMIT 5"
+    recent_games = [dict(g) for g in conn.execute(query).fetchall()]
     conn.close()
-    recent_games_list = [dict(game) for game in recent_games]
-    return render_template('index.html', stats=stats, recent_games=recent_games_list)
-
-@app.route('/admin/sliders')
-@license_required
-def manage_sliders():
-    conn = get_db_connection()
-    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id WHERE s.is_active = 1 ORDER BY s.display_order ASC').fetchall()
-    conn.close()
-    return render_template('manage_sliders.html', sliders=sliders)
-
-@app.route('/admin/slider/add', methods=['GET', 'POST'])
-@license_required
-def add_slider():
-    conn = get_db_connection()
-    if request.method == 'POST':
-        game_id = request.form.get('game_id') or None
-        badge_text = request.form.get('badge_text')
-        title = request.form.get('title')
-        description = request.form.get('description')
-        is_active = 1 if 'is_active' in request.form else 0
-        display_order = request.form.get('display_order', 0)
-        background_image = ''
-        if 'background_image' in request.files:
-            file = request.files['background_image']
-            if file and file.filename != '':
-                background_image = convert_to_webp(file, app.config['UPLOAD_FOLDER_SLIDER'])
-        conn.execute('''
-            INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (game_id, badge_text, title, description, background_image, is_active, display_order))
-        conn.commit()
-        conn.close()
-        return redirect(url_for('manage_sliders'))
-    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
-    conn.close()
-    return render_template('add_slider.html', games=games)
-
-@app.route('/admin/slider/edit/<int:slider_id>', methods=['GET', 'POST'])
-@license_required
-def edit_slider(slider_id):
-    conn = get_db_connection()
-    if request.method == 'POST':
-        game_id = request.form.get('game_id') or None
-        badge_text = request.form.get('badge_text')
-        title = request.form.get('title')
-        description = request.form.get('description')
-        is_active = 1 if 'is_active' in request.form else 0
-        display_order = request.form.get('display_order', 0)
-        background_image = request.form.get('current_background_image')
-        if 'background_image' in request.files:
-            file = request.files['background_image']
-            if file and file.filename != '':
-                if background_image:
-                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], background_image))
-                    except OSError: pass
-                background_image = convert_to_webp(file, app.config['UPLOAD_FOLDER_SLIDER'])
-        conn.execute('''
-            UPDATE slider SET game_id = ?, badge_text = ?, title = ?, description = ?, background_image = ?, is_active = ?, display_order = ?
-            WHERE id = ?
-        ''', (game_id, badge_text, title, description, background_image, is_active, display_order, slider_id))
-        conn.commit()
-        conn.close()
-        return redirect(url_for('manage_sliders'))
-    slider_data = conn.execute('SELECT * FROM slider WHERE id = ?', (slider_id,)).fetchone()
-    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
-    conn.close()
-    return render_template('edit_slider.html', slider=slider_data, games=games)
-
-@app.route('/admin/slider/delete/<int:slider_id>', methods=['POST'])
-@license_required
-def delete_slider(slider_id):
-    conn = get_db_connection()
-    slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
-    if slider and slider['background_image']:
-        try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
-        except OSError: pass
-    conn.execute('DELETE FROM slider WHERE id = ?', (slider_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('manage_sliders'))
+    return render_template('index.html', stats=stats, recent_games=recent_games)
 
 @app.route('/admin/games')
 @license_required
 def list_games():
     search_query = request.args.get('q', '') 
     conn = get_db_connection()
+    query = "SELECT g.*, GROUP_CONCAT(c.name) as category_names FROM games g LEFT JOIN game_categories gc ON g.id = gc.game_id LEFT JOIN categories c ON gc.category_id = c.id"
+    params = ()
     if search_query:
-        query = "SELECT g.*, c.name as category_name FROM games g LEFT JOIN categories c ON g.category_id = c.id WHERE g.oyun_adi LIKE ? ORDER BY g.id DESC"
-        games_raw = conn.execute(query, ('%' + search_query + '%',)).fetchall()
+        query += " WHERE g.oyun_adi LIKE ? GROUP BY g.id ORDER BY g.id DESC"
+        params = ('%' + search_query + '%',)
     else:
-        query = "SELECT g.*, c.name as category_name FROM games g LEFT JOIN categories c ON g.category_id = c.id ORDER BY g.id DESC"
-        games_raw = conn.execute(query).fetchall()
+        query += " GROUP BY g.id ORDER BY g.id DESC"
+    games_raw = conn.execute(query, params).fetchall()
     conn.close()
     return render_template('manage_games.html', games=games_raw, search_query=search_query)
 
@@ -531,46 +412,48 @@ def list_games():
 def add_game():
     conn = get_db_connection()
     if request.method == 'POST':
-        oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None;
-        launch_script = request.form.get('launch_script')
+        form_data = request.form
+        oyun_adi, aciklama, youtube_id, save_yolu, calistirma_tipi, cikis_yili, pegi, oyun_dili, launch_script = \
+            (form_data.get(k) for k in ['oyun_adi', 'aciklama', 'youtube_id', 'save_yolu', 'calistirma_tipi', 'cikis_yili', 'pegi', 'oyun_dili', 'launch_script'])
+        category_ids = request.form.getlist('category_ids')
+        
         cover_image_filename = ''
-        if 'cover_image' in request.files:
-            file = request.files['cover_image']
-            if file and file.filename != '':
-                cover_image_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_COVERS'])
+        if 'cover_image' in request.files and request.files['cover_image'].filename:
+            cover_image_filename = convert_to_webp(request.files['cover_image'], app.config['UPLOAD_FOLDER_COVERS'])
+            
         yuzde_yuz_save_filename = ''
-        if 'yuzde_yuz_save_file' in request.files:
+        if 'yuzde_yuz_save_file' in request.files and request.files['yuzde_yuz_save_file'].filename:
             file = request.files['yuzde_yuz_save_file']
-            if file and file.filename != '':
-                yuzde_yuz_save_filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
-        calistirma_verisi = {}
+            yuzde_yuz_save_filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+            
         if calistirma_tipi == 'exe':
-            calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
-            if not launch_script or launch_script.strip() == '':
-                launch_script = f'start "" "%EXE_YOLU%" %EXE_ARGS%'
-        elif calistirma_tipi == 'steam':
-            calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
-            launch_script = None 
-        sql = ''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) '''
+            calistirma_verisi = json.dumps({'yol': form_data.get('exe_yol'), 'argumanlar': form_data.get('exe_argumanlar', '')})
+            if not launch_script or not launch_script.strip(): 
+                launch_script = 'start "" "%EXE_YOLU%" %EXE_ARGS%'
+        else: # steam
+            calistirma_verisi, launch_script = json.dumps({'app_id': form_data.get('steam_app_id')}), None
+            
         cursor = conn.cursor()
-        cursor.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename))
+        cursor.execute(''' INSERT INTO games(oyun_adi, aciklama, cover_image, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_path) 
+                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ''', 
+                       (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_filename))
         new_game_id = cursor.lastrowid
         
-        # YENİ GALERİ YÜKLEME LOGİĞİ
+        if category_ids:
+            conn.executemany('INSERT INTO game_categories (game_id, category_id) VALUES (?, ?)', [(new_game_id, cat_id) for cat_id in category_ids])
+        
         if 'gallery_images' in request.files:
-            files = request.files.getlist('gallery_images')
-            folder_name = get_gallery_folder_name(oyun_adi) # Oyun adına göre klasör adını al
-            for file in files:
-                if file and file.filename != '':
-                    # Alt klasör içine kaydet ve DB'ye "klasor_adi/dosya.webp" kaydet
-                    gallery_filename_with_path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
-                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, gallery_filename_with_path))
-        # YENİ GALERİ YÜKLEME LOGİĞİ SONU
+            folder_name = get_gallery_folder_name(oyun_adi)
+            for file in request.files.getlist('gallery_images'):
+                if file and file.filename:
+                    path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
+                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (new_game_id, path))
         
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
+        
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     conn.close()
     return render_template('add_game.html', categories=categories)
@@ -580,71 +463,68 @@ def add_game():
 def edit_game(game_id):
     conn = get_db_connection()
     if request.method == 'POST':
-        oyun_adi = request.form['oyun_adi']; aciklama = request.form['aciklama']; youtube_id = request.form['youtube_id']; save_yolu = request.form['save_yolu']; calistirma_tipi = request.form['calistirma_tipi']; cikis_yili = request.form['cikis_yili']; pegi = request.form['pegi']; category_id = request.form.get('category_id') or None
-        launch_script = request.form.get('launch_script')
+        form_data = request.form
+        oyun_adi, aciklama, youtube_id, save_yolu, calistirma_tipi, cikis_yili, pegi, oyun_dili, launch_script = \
+            (form_data.get(k) for k in ['oyun_adi', 'aciklama', 'youtube_id', 'save_yolu', 'calistirma_tipi', 'cikis_yili', 'pegi', 'oyun_dili', 'launch_script'])
+        category_ids = request.form.getlist('category_ids')
         
-        # ÖNEMLİ: Oyun adını formdan alıp güncel halini kullanıyoruz
-        # Bu yüzden veritabanına kaydetmeden önce oyun adını güncelleyelim.
-        
-        cover_image_filename = request.form['current_cover_image']
-        if 'cover_image' in request.files:
-            file = request.files['cover_image']
-            if file and file.filename != '':
-                cover_image_filename = convert_to_webp(file, app.config['UPLOAD_FOLDER_COVERS'])
-        yuzde_yuz_save_filename = request.form['current_yuzde_yuz_save_file']
-        if 'yuzde_yuz_save_file' in request.files:
+        cover_image_filename = form_data['current_cover_image']
+        if 'cover_image' in request.files and request.files['cover_image'].filename:
+            cover_image_filename = convert_to_webp(request.files['cover_image'], app.config['UPLOAD_FOLDER_COVERS'])
+            
+        yuzde_yuz_save_filename = form_data['current_yuzde_yuz_save_file']
+        if 'yuzde_yuz_save_file' in request.files and request.files['yuzde_yuz_save_file'].filename:
             file = request.files['yuzde_yuz_save_file']
-            if file and file.filename != '':
-                yuzde_yuz_save_filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
-                
-        # YENİ GALERİ SİLME VE EKLEME LOGİĞİ
-        folder_name = get_gallery_folder_name(oyun_adi) # Oyun adına göre klasör adını al
-        images_to_delete = request.form.getlist('delete_gallery')
-        if images_to_delete:
-            for image_path_to_delete in images_to_delete:
-                conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (image_path_to_delete, game_id))
-                # Silinecek dosyanın tam yolunu oluştur
-                full_file_path = os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], image_path_to_delete)
-                try: os.remove(full_file_path)
-                except OSError as e: print(f"Dosya silinirken hata: {e}")
+            yuzde_yuz_save_filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER_100_SAVES'], yuzde_yuz_save_filename))
+            
+        folder_name = get_gallery_folder_name(oyun_adi)
+        if request.form.getlist('delete_gallery'):
+            for path in request.form.getlist('delete_gallery'):
+                conn.execute('DELETE FROM gallery_images WHERE image_path = ? AND game_id = ?', (path, game_id))
+                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_GALLERY'], path))
+                except OSError as e: print(f"Dosya silinemedi: {e}")
                 
         if 'gallery_images' in request.files:
-            files = request.files.getlist('gallery_images')
-            for file in files:
-                if file and file.filename != '':
-                    # Alt klasör içine kaydet ve DB'ye "klasor_adi/dosya.webp" kaydet
-                    gallery_filename_with_path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
-                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, gallery_filename_with_path))
-        # YENİ GALERİ SİLME VE EKLEME LOGİĞİ SONU
+            for file in request.files.getlist('gallery_images'):
+                if file and file.filename:
+                    path = convert_to_webp(file, app.config['UPLOAD_FOLDER_GALLERY'], sub_folder=folder_name)
+                    conn.execute('INSERT INTO gallery_images (game_id, image_path) VALUES (?, ?)', (game_id, path))
         
-        calistirma_verisi = {}
         if calistirma_tipi == 'exe':
-            calistirma_verisi = {'yol': request.form.get('exe_yol'), 'argumanlar': request.form.get('exe_argumanlar', '')}
-            if not launch_script or launch_script.strip() == '':
-                launch_script = f'start "" "%EXE_YOLU%" %EXE_ARGS%'
-        elif calistirma_tipi == 'steam':
-            calistirma_verisi = {'app_id': request.form.get('steam_app_id')}
-            launch_script = None 
-        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, category_id=?, launch_script=?, yuzde_yuz_save_path=? WHERE id=? '''
-        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, json.dumps(calistirma_verisi), cikis_yili, pegi, category_id, launch_script, yuzde_yuz_save_filename, game_id))
+            calistirma_verisi = json.dumps({'yol': form_data.get('exe_yol'), 'argumanlar': form_data.get('exe_argumanlar', '')})
+            if not launch_script or not launch_script.strip():
+                launch_script = 'start "" "%EXE_YOLU%" %EXE_ARGS%'
+        else: # steam
+            calistirma_verisi, launch_script = json.dumps({'app_id': form_data.get('steam_app_id')}), None
+            
+        sql = ''' UPDATE games SET oyun_adi=?, aciklama=?, cover_image=?, youtube_id=?, save_yolu=?, calistirma_tipi=?, calistirma_verisi=?, cikis_yili=?, pegi=?, oyun_dili=?, launch_script=?, yuzde_yuz_save_path=? WHERE id=? '''
+        conn.execute(sql, (oyun_adi, aciklama, cover_image_filename, youtube_id, save_yolu, calistirma_tipi, calistirma_verisi, cikis_yili, pegi, oyun_dili, launch_script, yuzde_yuz_save_filename, game_id))
+        
+        conn.execute('DELETE FROM game_categories WHERE game_id = ?', (game_id,))
+        if category_ids:
+            conn.executemany('INSERT INTO game_categories (game_id, category_id) VALUES (?, ?)', [(game_id, cat_id) for cat_id in category_ids])
+                
         conn.commit()
         conn.close()
         return redirect(url_for('list_games'))
+        
     game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
+    if not game: return "Oyun bulunamadı!", 404
+    
+    game_data = dict(game)
+    game_data['calistirma_verisi_dict'] = json.loads(game['calistirma_verisi'] or '{}')
     categories = conn.execute('SELECT * FROM categories ORDER BY name ASC').fetchall()
     gallery_images = conn.execute('SELECT * FROM gallery_images WHERE game_id = ?', (game_id,)).fetchall()
+    game_category_ids = {row['category_id'] for row in conn.execute('SELECT category_id FROM game_categories WHERE game_id = ?', (game_id,)).fetchall()}
     conn.close()
-    if game is None: return "Oyun bulunamadı!", 404
-    game_data = dict(game)
-    game_data['calistirma_verisi_dict'] = json.loads(game['calistirma_verisi']) if game['calistirma_verisi'] else {}
-    return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images)
+    
+    return render_template('edit_game.html', game=game_data, categories=categories, gallery=gallery_images, game_category_ids=game_category_ids)
 
 @app.route('/admin/delete/<int:game_id>', methods=['POST'])
 @license_required
 def delete_game(game_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM gallery_images WHERE game_id = ?', (game_id,))
     conn.execute('DELETE FROM games WHERE id = ?', (game_id,))
     conn.commit()
     conn.close()
@@ -681,15 +561,13 @@ def edit_category(category_id):
         return redirect(url_for('manage_categories'))
     category = conn.execute('SELECT * FROM categories WHERE id = ?', (category_id,)).fetchone()
     conn.close()
-    if category is None:
-        return "Kategori bulunamadı!", 404
+    if not category: return "Kategori bulunamadı!", 404
     return render_template('edit_category.html', category=category)
 
 @app.route('/admin/categories/delete/<int:category_id>', methods=['POST'])
 @license_required
 def delete_category(category_id):
     conn = get_db_connection()
-    conn.execute('UPDATE games SET category_id = NULL WHERE category_id = ?', (category_id,))
     conn.execute('DELETE FROM categories WHERE id = ?', (category_id,))
     conn.commit()
     conn.close()
@@ -708,73 +586,126 @@ def manage_users():
 def edit_user(user_id):
     conn = get_db_connection()
     if request.method == 'POST':
-        new_username = request.form.get('username').strip()
-        new_password = request.form.get('new_password')
+        new_username = request.form.get('username', '').strip()
+        new_password = request.form.get('new_password', '')
         if new_username and len(new_username) >= 3:
-            existing_user = conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone()
-            if not existing_user:
+            if not conn.execute('SELECT id FROM users WHERE username = ? AND id != ?', (new_username, user_id)).fetchone():
                 conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, user_id))
                 conn.commit()
-            else:
-                print(f"Hata: '{new_username}' kullanıcı adı zaten alınmış.")
         if new_password and len(new_password) >= 5:
-            password_hash = generate_password_hash(new_password)
-            conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (password_hash, user_id))
+            conn.execute('UPDATE users SET password_hash = ? WHERE id = ?', (generate_password_hash(new_password), user_id))
             conn.commit()
         conn.close()
         return redirect(url_for('manage_users'))
     user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
     conn.close()
-    if user is None: return "Kullanıcı bulunamadı!", 404
+    if not user: return "Kullanıcı bulunamadı!", 404
     return render_template('edit_user.html', user=user)
 
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
 @license_required
 def delete_user(user_id):
-    if user_id == 1:
+    if user_id == 1: 
         return redirect(url_for('manage_users'))
     conn = get_db_connection()
     conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
     conn.commit()
     conn.close()
     user_save_dir = os.path.join(app.config['SAVE_FOLDER'], str(user_id))
-    if os.path.exists(user_save_dir):
+    if os.path.exists(user_save_dir): 
         shutil.rmtree(user_save_dir)
     return redirect(url_for('manage_users'))
+
+@app.route('/admin/sliders')
+@license_required
+def manage_sliders():
+    conn = get_db_connection()
+    sliders = conn.execute('SELECT s.*, g.oyun_adi FROM slider s LEFT JOIN games g ON s.game_id = g.id ORDER BY s.display_order ASC').fetchall()
+    conn.close()
+    return render_template('manage_sliders.html', sliders=sliders)
+
+@app.route('/admin/slider/add', methods=['GET', 'POST'])
+@license_required
+def add_slider():
+    conn = get_db_connection()
+    if request.method == 'POST':
+        form = request.form
+        bg_image = ''
+        if 'background_image' in request.files and request.files['background_image'].filename:
+            bg_image = convert_to_webp(request.files['background_image'], app.config['UPLOAD_FOLDER_SLIDER'])
+        
+        conn.execute('''INSERT INTO slider (game_id, badge_text, title, description, background_image, is_active, display_order) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                       (form.get('game_id') or None, form.get('badge_text'), form.get('title'), form.get('description'), 
+                        bg_image, 1 if 'is_active' in form else 0, form.get('display_order', 0)))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('manage_sliders'))
+    
+    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
+    conn.close()
+    return render_template('add_slider.html', games=games)
+
+@app.route('/admin/slider/edit/<int:slider_id>', methods=['GET', 'POST'])
+@license_required
+def edit_slider(slider_id):
+    conn = get_db_connection()
+    if request.method == 'POST':
+        form = request.form
+        bg_image = form.get('current_background_image')
+        if 'background_image' in request.files and request.files['background_image'].filename:
+            if bg_image:
+                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], bg_image))
+                except OSError: pass
+            bg_image = convert_to_webp(request.files['background_image'], app.config['UPLOAD_FOLDER_SLIDER'])
+            
+        conn.execute('''UPDATE slider SET game_id=?, badge_text=?, title=?, description=?, background_image=?, is_active=?, display_order=? 
+                        WHERE id=?''', 
+                       (form.get('game_id') or None, form.get('badge_text'), form.get('title'), form.get('description'), 
+                        bg_image, 1 if 'is_active' in form else 0, form.get('display_order', 0), slider_id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('manage_sliders'))
+    
+    slider = conn.execute('SELECT * FROM slider WHERE id = ?', (slider_id,)).fetchone()
+    games = conn.execute('SELECT id, oyun_adi FROM games ORDER BY oyun_adi ASC').fetchall()
+    conn.close()
+    return render_template('edit_slider.html', slider=slider, games=games)
+
+@app.route('/admin/slider/delete/<int:slider_id>', methods=['POST'])
+@license_required
+def delete_slider(slider_id):
+    conn = get_db_connection()
+    slider = conn.execute('SELECT background_image FROM slider WHERE id = ?', (slider_id,)).fetchone()
+    if slider and slider['background_image']:
+        try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_SLIDER'], slider['background_image']))
+        except OSError: pass
+    conn.execute('DELETE FROM slider WHERE id = ?', (slider_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('manage_sliders'))
 
 @app.route('/admin/ratings')
 @license_required
 def manage_ratings():
-    sort_by = request.args.get('sort_by', 'oyun_adi')
-    order = request.args.get('order', 'asc')
-    allowed_sorts = ['oyun_adi', 'average_rating', 'rating_count']
-    if sort_by not in allowed_sorts:
-        sort_by = 'oyun_adi'
-    if order not in ['asc', 'desc']:
-        order = 'asc'
+    sort_by, order = request.args.get('sort_by', 'oyun_adi'), request.args.get('order', 'asc')
+    if sort_by not in ['oyun_adi', 'average_rating', 'rating_count']: sort_by = 'oyun_adi'
+    if order not in ['asc', 'desc']: order = 'asc'
     conn = get_db_connection()
-    query = f"SELECT id, oyun_adi, average_rating, rating_count FROM games ORDER BY {sort_by} {order}"
-    games = conn.execute(query).fetchall()
+    games = conn.execute(f"SELECT id, oyun_adi, average_rating, rating_count FROM games ORDER BY {sort_by} {order}").fetchall()
     conn.close()
-    next_order = 'desc' if order == 'asc' else 'asc'
-    return render_template('manage_ratings.html', games=games, sort_by=sort_by, next_order=next_order)
+    return render_template('manage_ratings.html', games=games, sort_by=sort_by, next_order='desc' if order == 'asc' else 'asc')
 
 @app.route('/admin/statistics')
 @license_required
 def manage_statistics():
-    sort_by = request.args.get('sort_by', 'click_count') 
-    order = request.args.get('order', 'desc')
-    allowed_sorts = ['oyun_adi', 'click_count']
-    if sort_by not in allowed_sorts:
-        sort_by = 'click_count'
-    if order not in ['asc', 'desc']:
-        order = 'desc'
+    sort_by, order = request.args.get('sort_by', 'click_count'), request.args.get('order', 'desc')
+    if sort_by not in ['oyun_adi', 'click_count']: sort_by = 'click_count'
+    if order not in ['asc', 'desc']: order = 'desc'
     conn = get_db_connection()
-    query = f"SELECT id, oyun_adi, click_count FROM games ORDER BY {sort_by} {order}"
-    games = conn.execute(query).fetchall()
+    games = conn.execute(f"SELECT id, oyun_adi, click_count FROM games ORDER BY {sort_by} {order}").fetchall()
     conn.close()
-    next_order = 'desc' if order == 'asc' else 'asc'
-    return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order=next_order)
+    return render_template('manage_statistics.html', games=games, sort_by=sort_by, next_order='desc' if order == 'asc' else 'asc')
 
 @app.route('/admin/statistics/reset_all', methods=['POST'])
 @license_required
@@ -802,217 +733,115 @@ def download_games():
 
 @app.route('/admin/license_management', methods=['GET', 'POST'])
 def license_management():
-    message = None
     settings = get_all_settings()
     license_key = settings.get('license_key', '')
+    server_hwid, server_public_ip, message = get_hwid(), get_public_ip_from_server(), None
     
-    # Admin Panelinin çalıştığı sunucunun HWID'si
-    server_hwid = get_hwid() 
-    
-    # Yeni: Sunucu kendi harici IP'sini çekiyor
-    server_public_ip = get_public_ip_from_server()
-    
-    # HWID'nin panele aktarılması için ek bir güvenlik kontrolü (boş değilse)
-    if not license_key and server_hwid:
-         message = "Anakart Seri Numarası başarıyla okundu. Lütfen lisans anahtarınızı girin."
-    elif not server_hwid and license_key:
-         # Burası, asıl sorunu gösteren yerdir
-         message = "UYARI: Anakart Seri Numarası (HWID) otomatik olarak alınamadı. Bu nedenle doğrulama başarısız olabilir. Komut çıktısını manuel kontrol edin."
-
-
     if request.method == 'POST':
         action = request.form.get('action')
-        
         if action == 'save_and_check':
             license_key = request.form.get('license_key', '')
             set_setting('license_key', license_key)
-            
-            # Sunucunun HWID'si ve HARİCİ IP'si ile kontrol yapılıyor
             check_license(license_key, server_hwid, server_public_ip)
-            
-            if license_status_cache['status'] == 'valid':
-                message = "Lisans anahtarı başarıyla kaydedildi ve doğrulandı!"
-            else:
-                message = f"Lisans kaydedildi ancak doğrulanamadı: {license_status_cache['reason']}"
-        
+            message = "Lisans kaydedildi ve doğrulandı!" if license_status_cache['status'] == 'valid' else f"Doğrulanamadı: {license_status_cache['reason']}"
         elif action == 'check_only':
-            if not license_key:
-                message = "Lütfen önce bir lisans anahtarı kaydedin."
-            else:
-                # Sunucunun HWID'si ve HARİCİ IP'si ile kontrol yapılıyor
+            if license_key:
                 check_license(license_key, server_hwid, server_public_ip)
-                message = f"Lisans durumu yeniden kontrol edildi: {license_status_cache['reason']}"
-
-    # Yeni: last_check_time'ı çekiyoruz (datetime nesnesi olabilir)
-    last_check_time = license_status_cache.get('last_checked')
-
-    return render_template(
-        'license_management.html',
-        license_key=license_key,
-        license_status=license_status_cache.get('status'),
-        license_reason=license_status_cache.get('reason'),
-        server_hwid=server_hwid, # Server HWID'si panele gönderiliyor
-        message=message,
-        # YENİ: full_api_response ve last_check_time'ı gönderiyoruz
-        full_license_data=license_status_cache.get('full_api_response', {}),
-        last_check_time=last_check_time
-    )
-
-# --- LİSANS YÖNETİMİ BÖLÜMÜ SONU ---
+                message = f"Durum: {license_status_cache['reason']}"
+            else:
+                message = "Önce bir lisans anahtarı kaydedin."
+                
+    return render_template('license_management.html', 
+                           license_key=license_key, 
+                           license_status=license_status_cache.get('status'), 
+                           license_reason=license_status_cache.get('reason'), 
+                           server_hwid=server_hwid, message=message, 
+                           full_license_data=license_status_cache.get('full_api_response', {}), 
+                           last_check_time=license_status_cache.get('last_checked'))
 
 @app.route('/admin/social_media', methods=['GET', 'POST'])
 @license_required
 def social_media_settings():
     if request.method == 'POST':
-        # Sosyal medya ayarlarını al ve kaydet
-        set_setting('social_google', request.form.get('social_google', ''))
-        set_setting('social_instagram', request.form.get('social_instagram', ''))
-        set_setting('social_facebook', request.form.get('social_facebook', ''))
-        set_setting('social_youtube', request.form.get('social_youtube', ''))
-        
+        for key in ['social_google', 'social_instagram', 'social_facebook', 'social_youtube']:
+            set_setting(key, request.form.get(key, ''))
         return redirect(url_for('social_media_settings'))
-
-    settings = get_all_settings()
-    # Varsayılan değerler
-    settings.setdefault('social_google', 'https://www.google.com')
-    settings.setdefault('social_instagram', 'https://www.instagram.com')
-    settings.setdefault('social_facebook', 'https://www.facebook.com')
-    settings.setdefault('social_youtube', 'https://www.youtube.com')
     
+    settings = get_all_settings()
     return render_template('social_media_settings.html', settings=settings)
-
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @license_required
 def general_settings():
     if request.method == 'POST':
         if 'delete_logo' in request.form:
-            current_settings = get_all_settings()
-            logo_to_delete = current_settings.get('logo_file')
+            logo_to_delete = get_all_settings().get('logo_file')
             if logo_to_delete:
                 try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], logo_to_delete))
-                except OSError as e: print(f"Logo silinirken hata: {e}")
+                except OSError as e: print(f"Logo silinemedi: {e}")
             set_setting('logo_file', '')
-            return redirect(url_for('general_settings'))
-        
-        cafe_name = request.form['cafe_name']
-        slogan = request.form['slogan']
-        set_setting('cafe_name', cafe_name)
-        set_setting('slogan', slogan)
+        else:
+            for key in ['cafe_name', 'slogan', 'background_type', 'primary_color_start', 'primary_color_end', 'welcome_modal_text']:
+                set_setting(key, request.form.get(key))
+                
+            set_setting('welcome_modal_enabled', '1' if 'welcome_modal_enabled' in request.form else '0')
+            try:
+                opacity = f"{max(0.1, min(1.0, float(request.form.get('background_opacity_factor', '1.0')))):.1f}"
+                set_setting('background_opacity_factor', opacity)
+            except ValueError:
+                set_setting('background_opacity_factor', '1.0')
 
-        if 'logo_file' in request.files:
-            file = request.files['logo_file']
-            if file and file.filename != '':
-                current_settings = get_all_settings()
-                old_file = current_settings.get('logo_file')
+            if 'logo_file' in request.files and request.files['logo_file'].filename:
+                file = request.files['logo_file']
+                old_file = get_all_settings().get('logo_file')
                 if old_file:
                     try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], old_file))
                     except OSError: pass
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_LOGOS'], filename))
                 set_setting('logo_file', filename)
-        
-        background_type = request.form['background_type']
-        set_setting('background_type', background_type)
-        set_setting('primary_color_start', request.form['primary_color_start'])
-        set_setting('primary_color_end', request.form['primary_color_end'])
-        
-        opacity_factor = request.form.get('background_opacity_factor', '1.0')
-        try:
-            factor = max(0.1, min(1.0, float(opacity_factor)))
-            set_setting('background_opacity_factor', f"{factor:.1f}")
-        except ValueError:
-            set_setting('background_opacity_factor', '1.0')
-            
-        if background_type == 'custom_bg' and 'custom_background_file' in request.files:
-            file = request.files['custom_background_file']
-            if file and file.filename != '':
-                current_settings = get_all_settings()
-                old_file = current_settings.get('background_file')
+
+            if request.form['background_type'] == 'custom_bg' and 'custom_background_file' in request.files and request.files['custom_background_file'].filename:
+                file = request.files['custom_background_file']
+                old_file = get_all_settings().get('background_file')
                 if old_file:
                     try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
                     except OSError: pass
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER_BG'], filename))
                 set_setting('background_file', filename)
-            elif 'current_background_file' in request.form:
-                set_setting('background_file', request.form['current_background_file'])
-            else:
-                set_setting('background_type', 'default')
+            elif request.form['background_type'] == 'default':
+                old_file = get_all_settings().get('background_file')
+                if old_file:
+                    try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
+                    except OSError: pass
                 set_setting('background_file', '')
-        
-        if background_type == 'default':
-            current_settings = get_all_settings()
-            old_file = current_settings.get('background_file')
-            if old_file:
-                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER_BG'], old_file))
-                except OSError: pass
-            set_setting('background_file', '')
-            
-        welcome_enabled = '1' if 'welcome_modal_enabled' in request.form else '0'
-        welcome_text = request.form.get('welcome_modal_text', '')
-        set_setting('welcome_modal_enabled', welcome_enabled)
-        set_setting('welcome_modal_text', welcome_text)
-        
+                
         return redirect(url_for('general_settings'))
 
     settings = get_all_settings()
-    settings.setdefault('cafe_name', 'Zenka Internet Cafe')
-    settings.setdefault('slogan', 'Hazırsan, oyun başlasın.')
-    settings.setdefault('logo_file', '')
-    settings.setdefault('background_type', 'default')
-    settings.setdefault('background_file', '')
-    settings.setdefault('background_opacity_factor', '1.0')
-    settings.setdefault('primary_color_start', '#667eea')
-    settings.setdefault('primary_color_end', '#764ba2')
-    settings.setdefault('welcome_modal_enabled', '1')
-    settings.setdefault('welcome_modal_text', 'Oyun ilerlemeni kaydetmek, oyunları favorilerine eklemek ve puanlamak için hemen üye girişi yap veya kayıt ol.')
-    # Yeni sosyal medya ayarlarını da ekle (Sadece GET için varsayılan değerleri sağlamak için)
-    settings.setdefault('social_google', 'https://www.google.com')
-    settings.setdefault('social_instagram', 'https://www.instagram.com')
-    settings.setdefault('social_facebook', 'https://www.facebook.com')
-    settings.setdefault('social_youtube', 'https://www.youtube.com')
-    
     return render_template('general_settings.html', settings=settings)
-# --- YENİ EKLENEN CLIENT API BÖLÜMÜ ---
 
 @app.route('/api/internal/check_status')
 def check_status_for_client():
-    """
-    Client bilgisayarlarının bağlanacağı dahili API.
-    Lisans kontrolü için sunucunun HWID'sini ve HARİCİ IP'sini kullanır.
-    """
     global license_status_cache
-    
-    # Sunucu ilk açıldığında veya uzun süre geçtiyse lisansı yeniden kontrol et
     last_checked = license_status_cache.get('last_checked')
     if not last_checked or (datetime.now() - last_checked) > timedelta(hours=1):
-        settings = get_all_settings()
-        license_key = settings.get('license_key', '')
+        license_key = get_all_settings().get('license_key', '')
         if license_key:
-            server_hwid = get_hwid()
-            server_public_ip = get_public_ip_from_server() # Sunucunun HARİCİ IP'sini çek
-            
-            # Lisans kontrolü için sunucunun HWID ve HARİCİ IP adreslerini kullan
-            check_license(license_key, server_hwid, server_public_ip)
+            check_license(license_key, get_hwid(), get_public_ip_from_server())
 
     if license_status_cache.get('status') == 'valid':
         return jsonify({"status": "ok"})
     else:
-        # Hata durumunda tam API yanıtını (debug dahil) istemciye gönder
         full_response = license_status_cache.get('full_api_response', {})
-        full_response['status'] = 'error' 
-        
-        return jsonify(full_response), 403 
+        full_response['status'] = 'error'
+        return jsonify(full_response), 403
 
-# --- YENİ BÖLÜM SONU ---
 if __name__ == '__main__':
-    init_db() 
-    
+    init_db()
     for folder_key in ['UPLOAD_FOLDER_COVERS', 'UPLOAD_FOLDER_GALLERY', 'SAVE_FOLDER', 'UPLOAD_FOLDER_BG', 'UPLOAD_FOLDER_100_SAVES', 'UPLOAD_FOLDER_LOGOS', 'UPLOAD_FOLDER_SLIDER']:
         folder_path = app.config.get(folder_key)
         if folder_path and not os.path.exists(folder_path):
             os.makedirs(folder_path)
-            
-    print("Sunucu http://127.0.0.1:5000 adresinde başlatılıyor...")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
