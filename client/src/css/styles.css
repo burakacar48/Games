@@ -351,6 +351,7 @@ body {
     overflow: hidden; 
     margin-bottom: 10px; 
 }
+
 #detail-main-media .media-nav {
     position: absolute;
     top: 50%;
@@ -366,12 +367,10 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     z-index: 10;
-    opacity: 0;
-    visibility: hidden;
+    opacity: 0.7; /* Oklar her zaman görünür */
 }
 #detail-main-media:hover .media-nav {
-    opacity: 1;
-    visibility: visible;
+    opacity: 1; /* Hover'da daha belirgin */
 }
 #detail-main-media .media-nav:hover {
     background: var(--primary-start);
@@ -395,35 +394,6 @@ body {
 .thumbnail-item { cursor: pointer; border: 2px solid transparent; border-radius: 4px; transition: border-color 0.2s; flex-shrink: 0; }
 .thumbnail-item.active { border-color: var(--primary-start); }
 .thumbnail-item img, .thumbnail-item .video-thumb { width: 100px; height: 56px; object-fit: cover; display: block; border-radius: 2px; }
-
-/* DÜZELTME BAŞLANGICI */
-.video-thumb { 
-    background-color: #000; 
-    display: flex; /* Dikey hizalama için */
-    justify-content: center; 
-    align-items: center; /* Yatay hizalama için */
-    background-size: cover; 
-    background-position: center; 
-    position: relative; 
-    cursor: pointer; /* Tıklanabilir olduğunu belirtir */
-    width: 100%; /* Kapsayıcısını doldurur */
-    height: 100%; /* Kapsayıcısını doldurur */
-}
-.video-thumb i { 
-    position: absolute; 
-    top: 50%; 
-    left: 50%; 
-    transform: translate(-50%, -50%); 
-    font-size: 2.5rem; /* İkon boyutu büyütüldü */
-    color: rgba(255, 255, 255, 0.8); 
-    transition: transform 0.2s, color 0.2s; 
-    text-shadow: 0 0 10px rgba(0,0,0,0.5); /* Okunurluk için gölge */
-}
-.video-thumb:hover i {
-    transform: translate(-50%, -50%) scale(1.1);
-    color: #fff;
-}
-/* DÜZELTME SONU */
 
 .info-column { font-size: 1rem; line-height: 1.6; color: #aaa; display: flex; flex-direction: column; }
 .info-column h2 { display: none; }
@@ -457,8 +427,7 @@ body {
 .similar-games-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #2a2a2a; }
 .similar-games-section h2 { font-size: 1.2rem; margin-bottom: 15px; color: #aaa; border-bottom: none; padding-bottom: 0; }
 .similar-games-section .games-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
-.game-card.similar .game-image-wrapper { height: 200px; }
-.game-card.similar .game-title { font-size: 0.9rem; }
+.game-card.similar .game-image-wrapper { /* height özelliği kaldırıldı */ }
 
 /* Logo Resim Stilleri */
 #logo-image-container {
@@ -490,7 +459,7 @@ body {
     font-size: 1rem;
     line-height: 1.6;
     margin-bottom: 30px;
-    white-space: pre-wrap; /* Bu satırı ekleyin */
+    white-space: pre-wrap;
 }
 
 .welcome-actions {
@@ -502,4 +471,105 @@ body {
 .welcome-actions .action-btn {
     padding: 12px 25px;
     font-size: 1rem;
+}
+
+/* --- YENİ EKLENEN/GÜNCELLENEN BÖLÜMLER --- */
+
+/* Metin Seçimini Engelle */
+#detail-main-media .media-nav,
+#detail-main-media .video-thumb,
+#detail-main-media img,
+.thumbnail-item {
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Tıklama odağını (outline) kaldır */
+#detail-main-media .media-nav:focus,
+#detail-main-media .video-thumb:focus,
+#detail-main-media img:focus,
+.thumbnail-item:focus {
+    outline: none;
+}
+
+/* Video thumbnail genel stilleri */
+.video-thumb {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.video-thumb::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1;
+}
+
+/* Hem ana hem de küçük thumbnail'deki ikon için ortak ve GÜNCELLENMİŞ stiller */
+.video-thumb .fab.fa-youtube {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* İkonu tam ortalar */
+    z-index: 2;
+    color: #ff0000;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Ana medya oynatma butonu (büyük) */
+#detail-main-media .video-thumb .fab.fa-youtube {
+    font-size: 65px;
+}
+
+/* Küçük thumbnail'deki oynatma butonu (küçük) */
+#detail-thumbnail-strip .video-thumb .fab.fa-youtube {
+    font-size: 36px;
+}
+
+.video-thumb:hover .fab.fa-youtube {
+    transform: translate(-50%, -50%) scale(1.1); /* Ortalamayı koruyarak büyütür */
+}
+
+/* Toplam Oyun Sayısı Bölümü */
+.game-count-section {
+    padding: 20px;
+    margin: 10px 20px;
+    border-top: 1px solid #2a2a2a;
+    text-align: center;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+}
+
+.game-count-value {
+    font-family: 'Pricedown', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    margin-bottom: 5px;
+}
+
+.game-count-label {
+    color: #666;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }

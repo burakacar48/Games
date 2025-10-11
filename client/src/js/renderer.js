@@ -51,10 +51,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const favoriteButton = document.getElementById('favorite-button');
     const similarGamesSection = document.querySelector('.similar-games-section');
     const similarGamesGrid = document.getElementById('similar-games-grid');
-    // YENİ EKLENEN GALERİ KONTROLLERİ
-    const mediaPrevBtn = document.getElementById('media-prev');
-    const mediaNextBtn = document.getElementById('media-next');
-
+    
     // === Karşılama Modalı Fonksiyonları ===
     const openWelcomeModal = () => {
         if (welcomeModal) welcomeModal.style.display = 'flex';
@@ -194,6 +191,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         let galleryItems = [];
         let currentMediaIndex = 0;
+        let isGalleryTransitioning = false; // Race condition için kilit
 
         if (game.youtube_id) {
             galleryItems.push({ type: 'video', id: game.youtube_id });
@@ -203,6 +201,9 @@ window.addEventListener('DOMContentLoaded', () => {
         }
 
         const updateMainMedia = (index) => {
+            if (isGalleryTransitioning) return;
+            isGalleryTransitioning = true;
+
             const item = galleryItems[index];
             mainMedia.innerHTML = ''; 
 
@@ -213,7 +214,7 @@ window.addEventListener('DOMContentLoaded', () => {
             nextArrow.onclick = () => { currentMediaIndex = (currentMediaIndex + 1) % galleryItems.length; updateMainMedia(currentMediaIndex); };
             
             if (item.type === 'video') {
-                mainMedia.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${item.id}/mqdefault.jpg)"><i class="fas fa-play"></i></div>`;
+                mainMedia.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${item.id}/mqdefault.jpg)"><i class="fab fa-youtube"></i></div>`;
                 mainMedia.querySelector('.video-thumb').onclick = () => {
                     mainMedia.innerHTML = `<iframe src="https://www.youtube.com/embed/${item.id}?autoplay=1" allow="autoplay; fullscreen"></iframe>`;
                 };
@@ -227,6 +228,20 @@ window.addEventListener('DOMContentLoaded', () => {
                 thumb.classList.toggle('active', i === index);
             });
             currentMediaIndex = index;
+
+            // Aktif thumbnail'i görünür alana kaydır
+            const activeThumb = thumbnailStrip.querySelector('.thumbnail-item.active');
+            if (activeThumb) {
+                activeThumb.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'center'
+                });
+            }
+
+            setTimeout(() => {
+                isGalleryTransitioning = false;
+            }, 200);
         };
 
         thumbnailStrip.innerHTML = '';
@@ -234,7 +249,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const thumb = document.createElement('div');
             thumb.className = 'thumbnail-item';
             if (item.type === 'video') {
-                thumb.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${item.id}/mqdefault.jpg)"><i class="fas fa-play"></i></div>`;
+                thumb.innerHTML = `<div class="video-thumb" style="background-image: url(https://img.youtube.com/vi/${item.id}/mqdefault.jpg)"><i class="fab fa-youtube"></i></div>`;
             } else {
                 thumb.innerHTML = `<img src="${item.src}">`;
             }
@@ -368,6 +383,18 @@ window.addEventListener('DOMContentLoaded', () => {
         ]).then(([games, categories]) => {
             allGames = games.map(g => ({ ...g, id: Number(g.id) })); 
             allCategories = categories;
+
+            // --- YENİ EKLENEN KOD BAŞLANGICI ---
+            // Oyun sayısını sidebar'a yazdır
+            const gameCountSection = document.getElementById('game-count-section');
+            if (gameCountSection) {
+                gameCountSection.innerHTML = `
+                    <div class="game-count-value">${allGames.length}</div>
+                    <div class="game-count-label">Toplam Oyun</div>
+                `;
+            }
+            // --- YENİ EKLENEN KOD SONU ---
+
             renderCategories();
             addViewAllListener();
             renderGames(currentFilter);
